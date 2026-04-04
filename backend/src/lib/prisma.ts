@@ -13,6 +13,11 @@ const TENANT_SCOPED_MODELS = new Set([
   'Reconciliation', 'ReconItem', 'SalaryRecord', 'Advance', 'Attendance',
   'CashCollection', 'Expense', 'Supplier', 'Purchase', 'PurchaseItem',
   'Customer', 'Alert', 'ComplianceDoc', 'WeatherLog',
+  // V3 additions
+  'AIQueryLog', 'DemandPrediction', 'InsightCard', 'MarketplaceOrder',
+  'CustomDashboard', 'ScheduledReport', 'AuditLog', 'AutomationRule',
+  'LeaveRequest', 'ShiftSchedule', 'Budget', 'RecurringInvoice',
+  'CustomerFeedback', 'StockTransfer',
 ]);
 
 function createPrismaClient(): PrismaClient {

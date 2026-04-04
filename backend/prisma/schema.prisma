@@ -33,6 +33,7 @@ enum UserRole {
   OWNER
   MANAGER
   STAFF
+  SUPPLIER
 }
 
 enum SalaryType {
@@ -209,6 +210,10 @@ model Business {
   enablePerformance     Boolean      @default(true)
   enableWeather         Boolean      @default(false)
   enableLoyalty         Boolean      @default(false)
+  // V3 feature flags
+  enableAI              Boolean      @default(true)
+  enableMarketplace     Boolean      @default(false)
+  enableRecurring       Boolean      @default(false)
 
   locationLabel         String       @default("Store")
   staffLabel            String       @default("Staff")
@@ -754,4 +759,441 @@ model WeatherLog {
 
   @@unique([locationId, date])
   @@index([businessId])
+}
+
+// ═══════════════════════════ V3: WHATSAPP BOT ═══════════════════
+
+enum WhatsAppSessionState {
+  IDLE
+  AWAITING_DISPATCH_CONFIRM
+  CREATING_BILL_ITEMS
+  CREATING_BILL_PAYMENT
+  RECONCILING_ITEMS
+  QUERYING
+}
+
+enum WAMessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum WAMessageType {
+  TEXT
+  IMAGE
+  TEMPLATE
+  INTERACTIVE
+  DOCUMENT
+}
+
+model WhatsAppSession {
+  id           String                @id @default(cuid())
+  phone        String                @unique
+  state        WhatsAppSessionState  @default(IDLE)
+  stateData    Json?
+  userId       String?
+  businessId   String?
+  locationId   String?
+  language     String                @default("hi")
+  lastActivity DateTime              @default(now())
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  messages     WhatsAppMessage[]
+
+  @@index([phone])
+  @@index([businessId])
+}
+
+model WhatsAppMessage {
+  id          String             @id @default(cuid())
+  waMessageId String?
+  direction   WAMessageDirection
+  type        WAMessageType      @default(TEXT)
+  content     String
+  mediaUrl    String?
+  metadata    Json?
+  sessionId   String
+  session     WhatsAppSession    @relation(fields: [sessionId], references: [id])
+  businessId  String?
+  createdAt   DateTime           @default(now())
+
+  @@index([businessId])
+  @@index([sessionId])
+}
+
+// ═══════════════════════════ V3: AI / ML ═════════════════════════
+
+enum AIQueryType {
+  BUSINESS_ADVICE
+  DEMAND_PREDICTION
+  ANOMALY_EXPLANATION
+  GENERAL_QUERY
+}
+
+model AIQueryLog {
+  id          String      @id @default(cuid())
+  type        AIQueryType
+  query       String
+  context     Json?
+  response    String
+  model       String
+  tokensUsed  Int         @default(0)
+  latencyMs   Int         @default(0)
+  rating      Int?
+  userId      String
+  businessId  String
+  createdAt   DateTime    @default(now())
+
+  @@index([businessId])
+}
+
+model DemandPrediction {
+  id              String   @id @default(cuid())
+  date            DateTime @db.Date
+  predictedQty    Int
+  actualQty       Int?
+  confidence      Float
+  factors         Json
+  accuracy        Float?
+  itemId          String
+  locationId      String
+  businessId      String
+  createdAt       DateTime @default(now())
+
+  @@unique([itemId, locationId, date])
+  @@index([businessId])
+}
+
+model InsightCard {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  category    String
+  actionable  Boolean  @default(true)
+  data        Json?
+  isDismissed Boolean  @default(false)
+  businessId  String
+  createdAt   DateTime @default(now())
+
+  @@index([businessId])
+}
+
+// ═══════════════════════════ V3: MARKETPLACE ═════════════════════
+
+enum MarketplaceOrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model SupplierProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  businessName    String
+  description     String?
+  phone           String
+  address         String
+  city            String
+  deliveryRadius  Int      @default(50)
+  rating          Float    @default(0)
+  totalOrders     Int      @default(0)
+  isVerified      Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  listings        SupplierListing[]
+  orders          MarketplaceOrder[]
+  ratings         SupplierRating[]
+}
+
+model SupplierListing {
+  id              String          @id @default(cuid())
+  name            String
+  description     String?
+  category        String
+  unit            String
+  pricePerUnit    Float
+  minOrderQty     Float
+  maxOrderQty     Float?
+  bulkPrice       Float?
+  bulkThreshold   Float?
+  imageUrl        String?
+  isActive        Boolean         @default(true)
+  supplierId      String
+  supplier        SupplierProfile @relation(fields: [supplierId], references: [id])
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([category])
+  @@index([supplierId])
+}
+
+model MarketplaceOrder {
+  id              String                 @id @default(cuid())
+  orderNumber     Int                    @default(autoincrement())
+  status          MarketplaceOrderStatus @default(PENDING)
+  totalAmount     Float
+  deliveryDate    DateTime?
+  notes           String?
+  supplierId      String
+  supplier        SupplierProfile        @relation(fields: [supplierId], references: [id])
+  businessId      String
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  items           MarketplaceOrderItem[]
+
+  @@index([businessId])
+  @@index([supplierId])
+}
+
+model MarketplaceOrderItem {
+  id          String           @id @default(cuid())
+  quantity    Float
+  unitPrice   Float
+  lineTotal   Float
+  orderId     String
+  order       MarketplaceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  listingId   String
+}
+
+model SupplierRating {
+  id          String          @id @default(cuid())
+  rating      Int
+  review      String?
+  businessId  String
+  supplierId  String
+  supplier    SupplierProfile @relation(fields: [supplierId], references: [id])
+  createdAt   DateTime        @default(now())
+
+  @@unique([businessId, supplierId])
+}
+
+// ═══════════════════════════ V3: ANALYTICS & BI ══════════════════
+
+model CustomDashboard {
+  id          String            @id @default(cuid())
+  name        String
+  isDefault   Boolean           @default(false)
+  layout      Json
+  businessId  String
+  userId      String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  widgets     DashboardWidget[]
+
+  @@index([businessId])
+}
+
+model DashboardWidget {
+  id          String          @id @default(cuid())
+  type        String
+  title       String
+  config      Json
+  position    Json
+  dashboardId String
+  dashboard   CustomDashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+}
+
+model ScheduledReport {
+  id          String    @id @default(cuid())
+  name        String
+  reportType  String
+  frequency   String
+  channel     String
+  recipients  Json
+  config      Json
+  isActive    Boolean   @default(true)
+  lastSentAt  DateTime?
+  businessId  String
+  createdAt   DateTime  @default(now())
+
+  @@index([businessId])
+}
+
+// ═══════════════════════════ V3: AUDIT TRAIL ═════════════════════
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  entityType  String
+  entityId    String
+  action      String
+  oldValue    Json?
+  newValue    Json?
+  userId      String
+  userName    String
+  businessId  String
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([businessId])
+  @@index([entityType, entityId])
+  @@index([businessId, createdAt])
+}
+
+// ═══════════════════════════ V3: WORKFLOW AUTOMATION ══════════════
+
+enum WorkflowTrigger {
+  REVENUE_BELOW
+  REVENUE_ABOVE
+  EXPENSE_ABOVE
+  STOCK_BELOW
+  WASTAGE_ABOVE
+  CASH_SHORTAGE
+  LATE_RECONCILIATION
+  LATE_CHECKIN
+  BILL_AMOUNT_ABOVE
+  CUSTOM
+}
+
+enum WorkflowAction {
+  SEND_WHATSAPP
+  SEND_PUSH
+  CREATE_ALERT
+  BLOCK_EXPENSE
+  AUTO_REMINDER
+}
+
+model AutomationRule {
+  id              String          @id @default(cuid())
+  name            String
+  trigger         WorkflowTrigger
+  triggerConfig   Json
+  action          WorkflowAction
+  actionConfig    Json
+  isActive        Boolean         @default(true)
+  timesTriggered  Int             @default(0)
+  lastTriggeredAt DateTime?
+  businessId      String
+  createdAt       DateTime        @default(now())
+
+  @@index([businessId])
+}
+
+// ═══════════════════════════ V3: HR ENHANCEMENTS ═════════════════
+
+enum LeaveType {
+  CASUAL
+  SICK
+  EARNED
+  UNPAID
+}
+
+enum LeaveStatus {
+  LEAVE_PENDING
+  LEAVE_APPROVED
+  LEAVE_REJECTED
+}
+
+model LeaveRequest {
+  id          String      @id @default(cuid())
+  type        LeaveType
+  startDate   DateTime    @db.Date
+  endDate     DateTime    @db.Date
+  days        Int
+  reason      String?
+  status      LeaveStatus @default(LEAVE_PENDING)
+  approvedBy  String?
+  businessId  String
+  userId      String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([businessId])
+}
+
+model ShiftSchedule {
+  id          String   @id @default(cuid())
+  date        DateTime @db.Date
+  shiftStart  String
+  shiftEnd    String
+  userId      String
+  locationId  String
+  businessId  String
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([businessId])
+}
+
+// ═══════════════════════════ V3: BUDGET ═══════════════════════════
+
+model Budget {
+  id              String   @id @default(cuid())
+  month           String
+  revenueTarget   Float
+  cogsLimit       Float
+  expenseLimit    Float
+  salaryBudget    Float
+  profitTarget    Float
+  locationId      String
+  businessId      String
+  createdAt       DateTime @default(now())
+
+  @@unique([locationId, month])
+  @@index([businessId])
+}
+
+// ═══════════════════════════ V3: RECURRING INVOICES ═══════════════
+
+model RecurringInvoice {
+  id          String   @id @default(cuid())
+  customerId  String
+  items       Json
+  frequency   String
+  nextDueDate DateTime @db.Date
+  totalAmount Float
+  isActive    Boolean  @default(true)
+  businessId  String
+  locationId  String?
+  createdAt   DateTime @default(now())
+
+  @@index([businessId])
+}
+
+// ═══════════════════════════ V3: CUSTOMER FEEDBACK ════════════════
+
+model CustomerFeedback {
+  id          String   @id @default(cuid())
+  rating      Int
+  comment     String?
+  channel     String
+  customerId  String?
+  locationId  String
+  businessId  String
+  createdAt   DateTime @default(now())
+
+  @@index([businessId])
+  @@index([locationId])
+}
+
+// ═══════════════════════════ V3: STOCK TRANSFER ══════════════════
+
+enum TransferStatus {
+  TRANSFER_PENDING
+  TRANSFER_COMPLETED
+  TRANSFER_CANCELLED
+}
+
+model StockTransfer {
+  id              String         @id @default(cuid())
+  date            DateTime       @db.Date
+  status          TransferStatus @default(TRANSFER_PENDING)
+  notes           String?
+  fromLocationId  String
+  toLocationId    String
+  approvedById    String?
+  businessId      String
+  createdAt       DateTime       @default(now())
+  items           StockTransferItem[]
+
+  @@index([businessId])
+}
+
+model StockTransferItem {
+  id          String        @id @default(cuid())
+  quantity    Float
+  transferId  String
+  transfer    StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  itemId      String
 }

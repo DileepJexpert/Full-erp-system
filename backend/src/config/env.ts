@@ -16,6 +16,23 @@ const envSchema = z.object({
   R2_ENDPOINT: z.string().default('https://account.r2.cloudflarestorage.com'),
   REDIS_URL: z.string().default('redis://localhost:6379'),
   OPENWEATHER_API_KEY: z.string().default('mock-key'),
+  // V3: WhatsApp (Gupshup BSP)
+  GUPSHUP_API_KEY: z.string().default('mock-key'),
+  GUPSHUP_APP_NAME: z.string().default('erp-bot'),
+  GUPSHUP_SOURCE_NUMBER: z.string().default('917000000000'),
+  GUPSHUP_WEBHOOK_SECRET: z.string().default('mock-webhook-secret'),
+  // V3: Claude API (Anthropic)
+  ANTHROPIC_API_KEY: z.string().default('mock-key'),
+  CLAUDE_MODEL_FAST: z.string().default('claude-haiku-4-5-20251001'),
+  CLAUDE_MODEL_SMART: z.string().default('claude-sonnet-4-6'),
+  // V3: Marketplace
+  MARKETPLACE_COMMISSION_PCT: z.string().transform(Number).default('3'),
+  // V3: Email (scheduled reports)
+  SMTP_HOST: z.string().default('smtp.gmail.com'),
+  SMTP_PORT: z.string().transform(Number).default('587'),
+  SMTP_USER: z.string().default(''),
+  SMTP_PASS: z.string().default(''),
+  REPORT_SENDER_EMAIL: z.string().default('reports@yourdomain.com'),
   PORT: z.string().transform(Number).default('3000'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });
