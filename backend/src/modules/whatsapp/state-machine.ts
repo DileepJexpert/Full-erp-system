@@ -5,6 +5,7 @@ import { eventBus, EVENTS } from '../../lib/event-bus.js';
 interface SessionLike {
   id: string;
   phone: string;
+  userId: string | null;
   businessId: string | null;
   locationId: string | null;
   stateData: unknown;

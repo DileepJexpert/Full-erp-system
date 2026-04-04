@@ -74,7 +74,7 @@ export async function askAdvisor(
     iterations++;
 
     const toolUseBlocks = response.content.filter(
-      (block): block is Anthropic.ContentBlock & { type: 'tool_use' } =>
+      (block: any): block is Anthropic.ToolUseBlock =>
         block.type === 'tool_use',
     );
 
@@ -121,7 +121,7 @@ export async function askAdvisor(
 
   // Extract final text response
   const textBlock = response.content.find(
-    (block): block is Anthropic.TextBlock => block.type === 'text',
+    (block: any): block is Anthropic.TextBlock => block.type === 'text',
   );
   const answer = textBlock?.text ?? 'Sorry, I could not generate a response.';
 

@@ -35,11 +35,27 @@ import '../features/owner/templates/templates_screen.dart';
 import '../features/owner/reports/reports_screen.dart';
 import '../features/owner/settings/settings_screen.dart';
 
+// V3 Enhancement screens
+import '../features/owner/ai/ai_chat_screen.dart';
+import '../features/owner/ai/insights_screen.dart';
+import '../features/owner/budget/budget_screen.dart';
+import '../features/owner/automation/rules_screen.dart';
+import '../features/owner/reports/scheduled_reports_screen.dart';
+import '../features/owner/staff/leave_screen.dart';
+import '../features/owner/staff/shift_screen.dart';
+import '../features/owner/settings/audit_screen.dart';
+import '../features/owner/marketplace/browse_screen.dart';
+import '../features/owner/marketplace/order_screen.dart';
+import '../features/owner/loyalty/segments_screen.dart';
+import '../features/owner/loyalty/feedback_screen.dart';
+import '../features/owner/inventory/transfer_screen.dart';
+
 // Operator screens
 import '../features/operator/home/operator_home_screen.dart';
 import '../features/operator/pos/pos_screen.dart';
 import '../features/operator/reconcile/reconcile_screen.dart';
 import '../features/operator/salary/my_salary_screen.dart';
+import '../features/operator/leave/leave_request_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
@@ -109,7 +125,21 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/loyalty', builder: (_, __) => const LoyaltyScreen()),
           GoRoute(path: '/templates', builder: (_, __) => const TemplatesScreen()),
           GoRoute(path: '/reports', builder: (_, __) => const ReportsScreen()),
+          GoRoute(path: '/reports/scheduled', builder: (_, __) => const ScheduledReportsScreen()),
           GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
+          GoRoute(path: '/settings/audit', builder: (_, __) => const AuditScreen()),
+          // V3 routes
+          GoRoute(path: '/ai', builder: (_, __) => const AiChatScreen()),
+          GoRoute(path: '/ai/insights', builder: (_, __) => const InsightsScreen()),
+          GoRoute(path: '/budget', builder: (_, __) => const BudgetScreen()),
+          GoRoute(path: '/automation', builder: (_, __) => const RulesScreen()),
+          GoRoute(path: '/staff/leave', builder: (_, __) => const LeaveScreen()),
+          GoRoute(path: '/staff/shifts', builder: (_, __) => const ShiftScreen()),
+          GoRoute(path: '/marketplace', builder: (_, __) => const MarketplaceBrowseScreen()),
+          GoRoute(path: '/marketplace/orders', builder: (_, __) => const MarketplaceOrderScreen()),
+          GoRoute(path: '/loyalty/segments', builder: (_, __) => const SegmentsScreen()),
+          GoRoute(path: '/loyalty/feedback', builder: (_, __) => const FeedbackDashboardScreen()),
+          GoRoute(path: '/inventory/transfer', builder: (_, __) => const StockTransferScreen()),
         ],
       ),
 
@@ -121,6 +151,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/op/sell', builder: (_, __) => const PosScreen()),
           GoRoute(path: '/op/reconcile', builder: (_, __) => const ReconcileScreen()),
           GoRoute(path: '/op/salary', builder: (_, __) => const MySalaryScreen()),
+          GoRoute(path: '/op/leave', builder: (_, __) => const LeaveRequestScreen()),
         ],
       ),
     ],

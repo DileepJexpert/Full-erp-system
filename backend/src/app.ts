@@ -33,6 +33,23 @@ import { paymentRoutes } from './modules/payments/payments.routes.js';
 import { webhookRoutes } from './modules/webhooks/razorpay.routes.js';
 import { locationsRoutes as locationRoutes } from './modules/locations/locations.routes.js';
 
+// V3 Enhancement routes
+import { auditRoutes } from './modules/audit/audit.routes.js';
+import { leaveRoutes } from './modules/leave/leave.routes.js';
+import { shiftRoutes } from './modules/shifts/shifts.routes.js';
+import { budgetRoutes } from './modules/budgets/budgets.routes.js';
+import { recurringRoutes } from './modules/recurring/recurring.routes.js';
+import { transferRoutes } from './modules/transfers/transfers.routes.js';
+import { automationRoutes } from './modules/automation/automation.routes.js';
+import { feedbackRoutes } from './modules/feedback/feedback.routes.js';
+import { whatsappRoutes } from './modules/whatsapp/whatsapp.routes.js';
+import { aiRoutes } from './modules/ai/ai.routes.js';
+import { analyticsRoutes } from './modules/analytics/dashboards.routes.js';
+import { scheduledReportRoutes } from './modules/analytics/scheduled-reports.routes.js';
+import { rfmRoutes } from './modules/analytics/rfm.routes.js';
+import { marketplaceRoutes } from './modules/marketplace/marketplace.routes.js';
+import { supplierRoutes as marketplaceSellerRoutes } from './modules/marketplace/supplier.routes.js';
+
 export async function buildApp() {
   const app = Fastify({
     logger: {
@@ -115,6 +132,23 @@ export async function buildApp() {
     await api.register(weatherRoutes);
     await api.register(paymentRoutes);
     await api.register(webhookRoutes);
+
+    // V3 Enhancement modules
+    await api.register(auditRoutes);
+    await api.register(leaveRoutes);
+    await api.register(shiftRoutes);
+    await api.register(budgetRoutes);
+    await api.register(recurringRoutes);
+    await api.register(transferRoutes);
+    await api.register(automationRoutes);
+    await api.register(feedbackRoutes);
+    await api.register(whatsappRoutes);
+    await api.register(aiRoutes);
+    await api.register(analyticsRoutes);
+    await api.register(scheduledReportRoutes);
+    await api.register(rfmRoutes);
+    await api.register(marketplaceRoutes);
+    await api.register(marketplaceSellerRoutes);
   }, { prefix: API_PREFIX });
 
   return app;
