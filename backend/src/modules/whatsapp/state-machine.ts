@@ -107,7 +107,7 @@ async function resolveItems(
 ): Promise<Array<{ itemId: string; quantity: number; unitPrice: number; name: string }>> {
   const items = await prisma.item.findMany({
     where: { businessId },
-    select: { id: true, name: true, sellingPrice: true },
+    select: { id: true, name: true, sellPrice: true },
   });
 
   const resolved: Array<{ itemId: string; quantity: number; unitPrice: number; name: string }> = [];
@@ -128,7 +128,7 @@ async function resolveItems(
       resolved.push({
         itemId: found.id,
         quantity: parsed.qty,
-        unitPrice: found.sellingPrice as number,
+        unitPrice: found.sellPrice as number,
         name: found.name,
       });
     }
@@ -179,9 +179,7 @@ async function createBillFromParsed(
             itemId: i.itemId,
             quantity: i.quantity,
             unitPrice: i.unitPrice,
-            total: Math.round(i.quantity * i.unitPrice * 100) / 100,
-            cgstAmount: 0,
-            sgstAmount: 0,
+            lineTotal: Math.round(i.quantity * i.unitPrice * 100) / 100,
           })),
         },
       },

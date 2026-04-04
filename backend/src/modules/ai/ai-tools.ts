@@ -246,15 +246,15 @@ export async function executeTool(
         select: {
           id: true,
           name: true,
-          currentStock: true,
-          minStock: true,
+          centralStock: true,
+          minStockLevel: true,
           unit: true,
         },
-        orderBy: { currentStock: 'asc' },
+        orderBy: { centralStock: 'asc' },
       });
 
       const lowStock = items.filter(
-        (i) => (i.currentStock ?? 0) <= (i.minStock ?? 0),
+        (i) => (i.centralStock ?? 0) <= (i.minStockLevel ?? 0),
       );
 
       return {
@@ -263,10 +263,10 @@ export async function executeTool(
         items: items.map((i) => ({
           id: i.id,
           name: i.name,
-          currentStock: i.currentStock,
-          minStock: i.minStock,
+          currentStock: i.centralStock,
+          minStock: i.minStockLevel,
           unit: i.unit,
-          isLow: (i.currentStock ?? 0) <= (i.minStock ?? 0),
+          isLow: (i.centralStock ?? 0) <= (i.minStockLevel ?? 0),
         })),
       };
     }
@@ -294,7 +294,7 @@ export async function executeTool(
               _sum: { totalLoss: true },
             }),
             prisma.attendance.count({
-              where: { businessId, userId: user.id, date: { gte: start, lte: end } },
+              where: { businessId, operatorId: user.id, date: { gte: start, lte: end } },
             }),
           ]);
 
@@ -335,7 +335,7 @@ export async function executeTool(
           revenue: 0,
         };
         existing.quantity += bi.quantity;
-        existing.revenue += bi.total as number;
+        existing.revenue += bi.lineTotal as number;
         itemAgg.set(bi.itemId, existing);
       }
 
@@ -372,7 +372,7 @@ export async function executeTool(
       const monthStr = args.month as string | undefined;
 
       const where: Record<string, unknown> = { businessId };
-      if (userId) where.userId = userId;
+      if (userId) where.operatorId = userId;
 
       if (monthStr) {
         const [year, month] = monthStr.split('-').map(Number);
@@ -383,15 +383,15 @@ export async function executeTool(
 
       const salaries = await prisma.salaryRecord.findMany({
         where,
-        include: { user: { select: { name: true, phone: true } } },
+        include: { operator: { select: { name: true, phone: true } } },
         orderBy: { createdAt: 'desc' },
       });
 
       return salaries.map((s) => ({
-        userId: s.userId,
-        userName: (s as any).user?.name ?? 'Unknown',
+        operatorId: s.operatorId,
+        operatorName: (s as any).operator?.name ?? 'Unknown',
         baseSalary: s.baseSalary,
-        totalDeductions: s.totalDeductions,
+        totalDeductions: s.totalLossDed + s.totalCashShort + s.totalAdvanceDed,
         netSalary: s.netSalary,
         createdAt: s.createdAt,
       }));

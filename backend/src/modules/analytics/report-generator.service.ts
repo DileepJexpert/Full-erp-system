@@ -85,16 +85,17 @@ export async function generateWeeklyPL(businessId: string, weekStart: Date) {
     });
     const revenue = billAgg._sum.netRevenue ?? billAgg._sum.total ?? 0;
 
-    // COGS from purchases
+    // COGS from purchases (Purchase has no locationId, so approximate from business-level)
     const purchaseAgg = await prisma.purchase.aggregate({
       where: {
         businessId,
-        locationId: loc.id,
         date: { gte: weekStart, lte: weekEnd },
       },
       _sum: { totalAmount: true },
     });
-    const cogs = purchaseAgg._sum.totalAmount ?? 0;
+    // Pro-rate purchase cost across locations
+    const totalPurchaseCost = purchaseAgg._sum.totalAmount ?? 0;
+    const cogs = locations.length > 0 ? totalPurchaseCost / locations.length : 0;
 
     // Expenses
     const expenseAgg = await prisma.expense.aggregate({

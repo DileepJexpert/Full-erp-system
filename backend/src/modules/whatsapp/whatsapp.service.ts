@@ -19,8 +19,18 @@ async function getOrCreateSession(phone: string) {
     // Try to find a user linked to this phone
     const user = await prisma.user.findFirst({
       where: { phone },
-      select: { id: true, businessId: true, locationId: true },
+      select: { id: true, businessId: true },
     });
+
+    // Find the location where this user is assigned as staff
+    let locationId: string | null = null;
+    if (user) {
+      const location = await prisma.location.findFirst({
+        where: { staffId: user.id, businessId: user.businessId },
+        select: { id: true },
+      });
+      locationId = location?.id ?? null;
+    }
 
     session = await prisma.whatsAppSession.create({
       data: {
@@ -28,7 +38,7 @@ async function getOrCreateSession(phone: string) {
         state: 'IDLE',
         userId: user?.id ?? null,
         businessId: user?.businessId ?? null,
-        locationId: user?.locationId ?? null,
+        locationId,
       },
     });
   } else {
@@ -112,8 +122,8 @@ async function handleStockQuery(businessId: string, locationId: string | null): 
 
   const items = await prisma.item.findMany({
     where: { businessId },
-    select: { name: true, currentStock: true, minStock: true },
-    orderBy: { currentStock: 'asc' },
+    select: { name: true, centralStock: true, minStockLevel: true },
+    orderBy: { centralStock: 'asc' },
     take: 10,
   });
 
@@ -122,8 +132,8 @@ async function handleStockQuery(businessId: string, locationId: string | null): 
   }
 
   const lines = items.map((item) => {
-    const warning = (item.currentStock ?? 0) <= (item.minStock ?? 0) ? ' LOW' : '';
-    return `${item.name}: ${item.currentStock ?? 0}${warning}`;
+    const warning = (item.centralStock ?? 0) <= (item.minStockLevel ?? 0) ? ' LOW' : '';
+    return `${item.name}: ${item.centralStock ?? 0}${warning}`;
   });
 
   return `*Stock Status (lowest first):*\n${lines.join('\n')}`;
@@ -143,7 +153,7 @@ async function handleSalaryQuery(businessId: string, phone: string): Promise<str
   }
 
   const latestSalary = await prisma.salaryRecord.findFirst({
-    where: { businessId, userId: user.id },
+    where: { businessId, operatorId: user.id },
     orderBy: { createdAt: 'desc' },
   });
 
@@ -151,11 +161,13 @@ async function handleSalaryQuery(businessId: string, phone: string): Promise<str
     return 'No salary records found for you.';
   }
 
+  const totalDeductions = latestSalary.totalLossDed + latestSalary.totalCashShort + latestSalary.totalAdvanceDed;
+
   return (
     `*Salary Info - ${user.name}*\n` +
-    `Base: Rs ${(latestSalary.baseSalary as number).toLocaleString('en-IN')}\n` +
-    `Deductions: Rs ${(latestSalary.totalDeductions as number).toLocaleString('en-IN')}\n` +
-    `Net: Rs ${(latestSalary.netSalary as number).toLocaleString('en-IN')}`
+    `Base: Rs ${latestSalary.baseSalary.toLocaleString('en-IN')}\n` +
+    `Deductions: Rs ${totalDeductions.toLocaleString('en-IN')}\n` +
+    `Net: Rs ${latestSalary.netSalary.toLocaleString('en-IN')}`
   );
 }
 
