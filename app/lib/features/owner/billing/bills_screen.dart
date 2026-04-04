@@ -17,29 +17,33 @@ class BillsScreen extends ConsumerStatefulWidget {
 class _BillsScreenState extends ConsumerState<BillsScreen> {
   Future<void> _pickDateRange() async {
     final now = DateTime.now();
+    final startDate = ref.read(billsStartDateProvider);
+    final endDate = ref.read(billsEndDateProvider);
+
     final picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(now.year - 2),
       lastDate: now,
-      initialDateRange: _toMaterialRange(ref.read(billsDateRangeProvider)),
+      initialDateRange: startDate != null && endDate != null
+          ? DateTimeRange(start: startDate, end: endDate)
+          : null,
     );
     if (picked != null) {
-      ref.read(billsDateRangeProvider.notifier).state = DateTimeRange(
-        start: picked.start,
-        end: picked.end,
-      );
+      ref.read(billsStartDateProvider.notifier).state = picked.start;
+      ref.read(billsEndDateProvider.notifier).state = picked.end;
     }
   }
 
-  DateRange? _toMaterialRange(DateTimeRange? r) {
-    if (r == null) return null;
-    return DateRange(r.start, r.end);
+  void _clearDateFilter() {
+    ref.read(billsStartDateProvider.notifier).state = null;
+    ref.read(billsEndDateProvider.notifier).state = null;
   }
 
   @override
   Widget build(BuildContext context) {
     final billsAsync = ref.watch(billsProvider);
-    final dateRange = ref.watch(billsDateRangeProvider);
+    final startDate = ref.watch(billsStartDateProvider);
+    final endDate = ref.watch(billsEndDateProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -75,8 +79,8 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          dateRange != null
-                              ? '${formatDate(dateRange.start)} - ${formatDate(dateRange.end)}'
+                          startDate != null && endDate != null
+                              ? '${formatDate(startDate)} - ${formatDate(endDate)}'
                               : 'All dates',
                           style: Theme.of(context).textTheme.bodyLarge,
                         ),
@@ -85,12 +89,10 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                         onPressed: _pickDateRange,
                         child: const Text('Filter'),
                       ),
-                      if (dateRange != null)
+                      if (startDate != null)
                         IconButton(
                           icon: const Icon(Icons.clear, size: 20),
-                          onPressed: () => ref
-                              .read(billsDateRangeProvider.notifier)
-                              .state = null,
+                          onPressed: _clearDateFilter,
                           tooltip: 'Clear filter',
                         ),
                     ],
@@ -259,11 +261,4 @@ class _BillCard extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Helper class since we use our own DateTimeRange
-class DateRange {
-  final DateTime start;
-  final DateTime end;
-  DateRange(this.start, this.end);
 }
