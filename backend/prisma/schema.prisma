@@ -1,0 +1,757 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════════════ ENUMS ═══════════════════════════
+
+enum BusinessType {
+  FOOD_KIOSK
+  CLOUD_KITCHEN
+  BAKERY
+  LAUNDRY
+  COACHING
+  PHARMACY_CHAIN
+  RENTAL
+  SERVICE
+  KIRANA
+  OTHER
+}
+
+enum PlanType {
+  FREE_TRIAL
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum UserRole {
+  OWNER
+  MANAGER
+  STAFF
+}
+
+enum SalaryType {
+  FIXED
+  ATTENDANCE_BASED
+}
+
+enum PaymentMode {
+  CASH
+  UPI
+  MIXED
+}
+
+enum PaymentConfirmStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
+enum OrderSource {
+  WALK_IN
+  SWIGGY
+  ZOMATO
+  PHONE_ORDER
+  OTHER
+}
+
+enum DispatchStatus {
+  PENDING
+  CONFIRMED
+  RECONCILED
+}
+
+enum ItemCategory {
+  FOOD
+  BEVERAGE
+  SUPPLY
+  PACKAGING
+  MEDICINE
+  SERVICE
+  OTHER
+}
+
+enum SeasonType {
+  WINTER
+  SUMMER
+  MONSOON
+  FESTIVAL
+  ALL_YEAR
+}
+
+enum SalaryStatus {
+  DRAFT
+  FINALIZED
+  PAID
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  LEAVE
+}
+
+enum ExpenseCategory {
+  FUEL
+  ICE
+  LOCAL_PURCHASE
+  REPAIR
+  LOCATION_CHARGE
+  TRANSPORT
+  ELECTRICITY
+  MISC
+}
+
+enum SupplierPaymentTerms {
+  CASH
+  CREDIT_7
+  CREDIT_15
+  CREDIT_30
+}
+
+enum PurchasePaymentStatus {
+  PAID
+  PARTIAL
+  PENDING
+}
+
+enum AlertType {
+  WASTAGE_HIGH
+  BILLING_MISMATCH
+  REVENUE_DROP
+  CASH_SHORTAGE
+  LATE_RECON
+  PATTERN_DETECTED
+  LOW_STOCK
+  COMPLIANCE_EXPIRY
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertStatus {
+  UNREAD
+  READ
+  INVESTIGATING
+  RESOLVED
+  DISMISSED
+}
+
+enum ComplianceType {
+  FSSAI
+  MUNICIPAL
+  FIRE_NOC
+  SHOP_LICENSE
+  HEALTH_CERT
+  AADHAAR
+  PAN
+  DRUG_LICENSE
+}
+
+enum ComplianceDocStatus {
+  VALID
+  EXPIRING_SOON
+  EXPIRED
+}
+
+enum WeatherCondition {
+  CLEAR
+  CLOUDY
+  RAIN
+  HEAVY_RAIN
+  STORM
+  HOT
+  COLD
+}
+
+// ═══════════════════════════ TENANT ═══════════════════════════
+
+model Business {
+  id                    String       @id @default(cuid())
+  name                  String
+  type                  BusinessType @default(FOOD_KIOSK)
+  phone                 String
+  email                 String?
+  address               String?
+  gstin                 String?
+  stateCode             String?
+  currency              String       @default("INR")
+  timezone              String       @default("Asia/Kolkata")
+  language              String       @default("en")
+
+  plan                  PlanType     @default(FREE_TRIAL)
+  planExpiresAt         DateTime?
+  maxLocations          Int          @default(5)
+  maxStaff              Int          @default(15)
+
+  enableDispatch        Boolean      @default(false)
+  enableReconciliation  Boolean      @default(false)
+  enableWastageMargin   Boolean      @default(false)
+  enableBatchExpiry     Boolean      @default(false)
+  enableAppointments    Boolean      @default(false)
+  enableCreditLedger    Boolean      @default(false)
+  enableWeightBilling   Boolean      @default(false)
+  enableCommissions     Boolean      @default(false)
+  enableMemberships     Boolean      @default(false)
+  enableBarcode         Boolean      @default(false)
+  enableDelivery        Boolean      @default(false)
+  enableAggregators     Boolean      @default(false)
+  enableAnomaly         Boolean      @default(true)
+  enablePerformance     Boolean      @default(true)
+  enableWeather         Boolean      @default(false)
+  enableLoyalty         Boolean      @default(false)
+
+  locationLabel         String       @default("Store")
+  staffLabel            String       @default("Staff")
+  offeringLabel         String       @default("Item")
+
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  users                 User[]
+  locations             Location[]
+  items                 Item[]
+  suppliers             Supplier[]
+  seasons               Season[]
+  menuTemplates         MenuTemplate[]
+  customers             Customer[]
+  alerts                Alert[]
+  complianceDocs        ComplianceDoc[]
+}
+
+// ═══════════════════════════ USERS ═══════════════════════════
+
+model User {
+  id              String     @id @default(cuid())
+  name            String
+  phone           String
+  role            UserRole   @default(STAFF)
+  salaryType      SalaryType @default(FIXED)
+  baseSalary      Float      @default(0)
+  aadhaar         String?
+  language        String     @default("en")
+  isActive        Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  businessId      String
+  business        Business   @relation(fields: [businessId], references: [id])
+
+  assignedLocation   Location?      @relation("LocationStaff")
+  managedLocations   Location[]     @relation("LocationManager")
+  dispatches         Dispatch[]     @relation("DispatchCreator")
+  reconciliations    Reconciliation[]
+  bills              Bill[]
+  salaryRecords      SalaryRecord[]
+  advances           Advance[]
+  attendances        Attendance[]
+  expensesCreated    Expense[]      @relation("ExpenseCreator")
+  purchasesCreated   Purchase[]     @relation("PurchaseCreator")
+  cashCollected      CashCollection[] @relation("CashCollector")
+  cashOperated       CashCollection[] @relation("CashOperator")
+  operatorAlerts     Alert[]        @relation("OperatorAlerts")
+  operatorDocs       ComplianceDoc[] @relation("OperatorDocs")
+
+  @@unique([phone, businessId])
+  @@index([businessId])
+}
+
+// ═══════════════════════════ LOCATIONS ═══════════════════════
+
+model Location {
+  id                String   @id @default(cuid())
+  name              String
+  type              String
+  address           String?
+  latitude          Float?
+  longitude         Float?
+  isActive          Boolean  @default(true)
+  upiId             String?
+  razorpayAccountId String?
+  printerType       String?
+  receiptHeader     String?
+  receiptFooter     String?
+  fssaiNumber       String?
+  dailyExpenseLimit Float?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  businessId        String
+  business          Business @relation(fields: [businessId], references: [id])
+  staffId           String?  @unique
+  staff             User?    @relation("LocationStaff", fields: [staffId], references: [id])
+  managerId         String?
+  manager           User?    @relation("LocationManager", fields: [managerId], references: [id])
+  activeTemplateId  String?
+  activeTemplate    MenuTemplate? @relation("ActiveTemplate", fields: [activeTemplateId], references: [id])
+
+  dispatches        Dispatch[]
+  bills             Bill[]
+  reconciliations   Reconciliation[]
+  attendances       Attendance[]
+  expenses          Expense[]
+  cashCollections   CashCollection[]
+  alerts            Alert[]         @relation("LocationAlerts")
+  complianceDocs    ComplianceDoc[] @relation("LocationDocs")
+  weatherLogs       WeatherLog[]
+
+  @@index([businessId])
+}
+
+// ═══════════════════════════ ITEMS ═══════════════════════════
+
+model Item {
+  id              String       @id @default(cuid())
+  name            String
+  unit            String
+  costPrice       Float
+  sellPrice       Float        @default(0)
+  category        ItemCategory @default(FOOD)
+  gstRate         Float        @default(5)
+  hsnCode         String?
+  dailyMargin     Int          @default(0)
+  seasonTags      SeasonType[] @default([ALL_YEAR])
+  isPerishable    Boolean      @default(false)
+  shelfLifeHrs    Int?
+  centralStock    Float        @default(0)
+  minStockLevel   Float?
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  businessId      String
+  business        Business     @relation(fields: [businessId], references: [id])
+
+  variants        ItemVariant[]
+  dispatchItems   DispatchItem[]
+  billItems       BillItem[]
+  reconItems      ReconItem[]
+  templateItems   MenuTemplateItem[]
+  purchaseItems   PurchaseItem[]
+
+  @@index([businessId])
+}
+
+model ItemVariant {
+  id         String  @id @default(cuid())
+  name       String
+  costPrice  Float
+  sellPrice  Float
+  isActive   Boolean @default(true)
+  itemId     String
+  item       Item    @relation(fields: [itemId], references: [id])
+}
+
+// ═══════════════════════════ SEASONS & TEMPLATES ═════════════
+
+model Season {
+  id         String     @id @default(cuid())
+  name       String
+  type       SeasonType
+  startDate  DateTime
+  endDate    DateTime
+  isActive   Boolean    @default(false)
+  businessId String
+  business   Business   @relation(fields: [businessId], references: [id])
+  templates  MenuTemplate[]
+
+  @@index([businessId])
+}
+
+model MenuTemplate {
+  id              String   @id @default(cuid())
+  name            String
+  locationType    String
+  isActive        Boolean  @default(true)
+  businessId      String
+  business        Business @relation(fields: [businessId], references: [id])
+  seasonId        String?
+  season          Season?  @relation(fields: [seasonId], references: [id])
+  items           MenuTemplateItem[]
+  activeLocations Location[] @relation("ActiveTemplate")
+
+  @@index([businessId])
+}
+
+model MenuTemplateItem {
+  id           String       @id @default(cuid())
+  defaultQty   Int
+  templateId   String
+  template     MenuTemplate @relation(fields: [templateId], references: [id])
+  itemId       String
+  item         Item         @relation(fields: [itemId], references: [id])
+
+  @@unique([templateId, itemId])
+}
+
+// ═══════════════════════════ DISPATCH ═════════════════════════
+
+model Dispatch {
+  id          String         @id @default(cuid())
+  date        DateTime       @db.Date
+  status      DispatchStatus @default(PENDING)
+  notes       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  businessId  String
+  locationId  String
+  location    Location       @relation(fields: [locationId], references: [id])
+  createdById String
+  createdBy   User           @relation("DispatchCreator", fields: [createdById], references: [id])
+
+  items          DispatchItem[]
+  reconciliation Reconciliation?
+
+  @@unique([locationId, date])
+  @@index([businessId])
+  @@index([businessId, date])
+}
+
+model DispatchItem {
+  id          String   @id @default(cuid())
+  quantity    Int
+  dispatchId  String
+  dispatch    Dispatch @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
+  itemId      String
+  item        Item     @relation(fields: [itemId], references: [id])
+
+  @@unique([dispatchId, itemId])
+}
+
+// ═══════════════════════════ BILLING ═════════════════════════
+
+model Bill {
+  id                    String               @id @default(cuid())
+  billNumber            Int                  @default(autoincrement())
+  date                  DateTime             @db.Date
+  subtotal              Float                @default(0)
+  cgstAmount            Float                @default(0)
+  sgstAmount            Float                @default(0)
+  total                 Float
+  paymentMode           PaymentMode          @default(CASH)
+  cashAmount            Float                @default(0)
+  upiAmount             Float                @default(0)
+  upiTransactionRef     String?
+  paymentStatus         PaymentConfirmStatus @default(CONFIRMED)
+  razorpayOrderId       String?
+  razorpayPaymentId     String?
+  invoiceNumber         String?
+  orderSource           OrderSource          @default(WALK_IN)
+  aggregatorOrderId     String?
+  aggregatorCommission  Float                @default(0)
+  netRevenue            Float                @default(0)
+  loyaltyPointsEarned   Int                  @default(0)
+  loyaltyPointsRedeemed Int                  @default(0)
+  loyaltyDiscount       Float                @default(0)
+  receiptPrinted        Boolean              @default(false)
+  customerName          String?
+  customerPhone         String?
+  notes                 String?
+  createdAt             DateTime             @default(now())
+
+  businessId            String
+  locationId            String
+  location              Location             @relation(fields: [locationId], references: [id])
+  operatorId            String
+  operator              User                 @relation(fields: [operatorId], references: [id])
+  customerId            String?
+  customer              Customer?            @relation(fields: [customerId], references: [id])
+
+  items                 BillItem[]
+
+  @@index([businessId])
+  @@index([businessId, date])
+  @@index([businessId, locationId, date])
+}
+
+model BillItem {
+  id         String @id @default(cuid())
+  quantity   Int
+  unitPrice  Float
+  lineTotal  Float
+  billId     String
+  bill       Bill   @relation(fields: [billId], references: [id], onDelete: Cascade)
+  itemId     String
+  item       Item   @relation(fields: [itemId], references: [id])
+}
+
+// ═══════════════════════════ RECONCILIATION ═══════════════════
+
+model Reconciliation {
+  id          String   @id @default(cuid())
+  date        DateTime @db.Date
+  status      String   @default("COMPLETED")
+  notes       String?
+  totalLoss   Float    @default(0)
+  createdAt   DateTime @default(now())
+
+  businessId  String
+  dispatchId  String   @unique
+  dispatch    Dispatch @relation(fields: [dispatchId], references: [id])
+  locationId  String
+  location    Location @relation(fields: [locationId], references: [id])
+  operatorId  String
+  operator    User     @relation(fields: [operatorId], references: [id])
+
+  items       ReconItem[]
+
+  @@index([businessId])
+  @@index([businessId, date])
+}
+
+model ReconItem {
+  id               String         @id @default(cuid())
+  dispatched       Int
+  sold             Int
+  returned         Int
+  wasted           Int
+  allowedMargin    Int
+  chargeableLoss   Int
+  lossAmount       Float
+
+  reconciliationId String
+  reconciliation   Reconciliation @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+  itemId           String
+  item             Item           @relation(fields: [itemId], references: [id])
+
+  @@unique([reconciliationId, itemId])
+}
+
+// ═══════════════════════════ SALARY ═══════════════════════════
+
+model SalaryRecord {
+  id              String       @id @default(cuid())
+  month           String
+  baseSalary      Float
+  totalLossDed    Float        @default(0)
+  totalCashShort  Float        @default(0)
+  totalAdvanceDed Float        @default(0)
+  bonus           Float        @default(0)
+  adjustments     Float        @default(0)
+  adjustmentNotes String?
+  netSalary       Float
+  status          SalaryStatus @default(DRAFT)
+  paidAt          DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  businessId      String
+  operatorId      String
+  operator        User         @relation(fields: [operatorId], references: [id])
+
+  @@unique([operatorId, month])
+  @@index([businessId])
+}
+
+model Advance {
+  id          String   @id @default(cuid())
+  amount      Float
+  date        DateTime @db.Date
+  notes       String?
+  createdAt   DateTime @default(now())
+  businessId  String
+  operatorId  String
+  operator    User     @relation(fields: [operatorId], references: [id])
+
+  @@index([businessId])
+}
+
+// ═══════════════════════════ ATTENDANCE ═══════════════════════
+
+model Attendance {
+  id            String           @id @default(cuid())
+  date          DateTime         @db.Date
+  checkInTime   DateTime
+  checkOutTime  DateTime?
+  checkInLat    Float?
+  checkInLng    Float?
+  isSubstitute  Boolean          @default(false)
+  status        AttendanceStatus @default(PRESENT)
+  hoursWorked   Float?
+  businessId    String
+  operatorId    String
+  operator      User             @relation(fields: [operatorId], references: [id])
+  locationId    String
+  location      Location         @relation(fields: [locationId], references: [id])
+
+  @@unique([operatorId, date])
+  @@index([businessId])
+}
+
+// ═══════════════════════════ CASH ═════════════════════════════
+
+model CashCollection {
+  id              String   @id @default(cuid())
+  date            DateTime @db.Date
+  expectedCash    Float
+  actualCollected Float
+  shortage        Float    @default(0)
+  depositedAmount Float?
+  bankRef         String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  businessId      String
+  locationId      String
+  location        Location @relation(fields: [locationId], references: [id])
+  operatorId      String
+  operator        User     @relation("CashOperator", fields: [operatorId], references: [id])
+  collectedById   String
+  collectedBy     User     @relation("CashCollector", fields: [collectedById], references: [id])
+
+  @@unique([locationId, date])
+  @@index([businessId])
+}
+
+// ═══════════════════════════ EXPENSES ═════════════════════════
+
+model Expense {
+  id          String          @id @default(cuid())
+  date        DateTime        @db.Date
+  amount      Float
+  category    ExpenseCategory
+  description String
+  receiptUrl  String?
+  createdAt   DateTime        @default(now())
+  businessId  String
+  locationId  String
+  location    Location        @relation(fields: [locationId], references: [id])
+  createdById String
+  createdBy   User            @relation("ExpenseCreator", fields: [createdById], references: [id])
+
+  @@index([businessId])
+}
+
+// ═══════════════════════════ SUPPLIERS & PURCHASES ════════════
+
+model Supplier {
+  id           String               @id @default(cuid())
+  name         String
+  phone        String
+  address      String?
+  paymentTerms SupplierPaymentTerms @default(CASH)
+  isActive     Boolean              @default(true)
+  createdAt    DateTime             @default(now())
+  businessId   String
+  business     Business             @relation(fields: [businessId], references: [id])
+  purchases    Purchase[]
+
+  @@index([businessId])
+}
+
+model Purchase {
+  id            String                @id @default(cuid())
+  date          DateTime              @db.Date
+  totalAmount   Float
+  paymentStatus PurchasePaymentStatus @default(PENDING)
+  amountPaid    Float                 @default(0)
+  notes         String?
+  createdAt     DateTime              @default(now())
+  businessId    String
+  supplierId    String
+  supplier      Supplier              @relation(fields: [supplierId], references: [id])
+  createdById   String
+  createdBy     User                  @relation("PurchaseCreator", fields: [createdById], references: [id])
+  items         PurchaseItem[]
+
+  @@index([businessId])
+}
+
+model PurchaseItem {
+  id         String   @id @default(cuid())
+  quantity   Float
+  unitPrice  Float
+  lineTotal  Float
+  purchaseId String
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  itemId     String
+  item       Item     @relation(fields: [itemId], references: [id])
+}
+
+// ═══════════════════════════ CUSTOMERS & LOYALTY ══════════════
+
+model Customer {
+  id             String   @id @default(cuid())
+  phone          String
+  name           String?
+  totalVisits    Int      @default(0)
+  totalSpent     Float    @default(0)
+  loyaltyPoints  Int      @default(0)
+  lifetimePoints Int      @default(0)
+  createdAt      DateTime @default(now())
+  businessId     String
+  business       Business @relation(fields: [businessId], references: [id])
+  bills          Bill[]
+
+  @@unique([phone, businessId])
+  @@index([businessId])
+}
+
+// ═══════════════════════════ ALERTS ═══════════════════════════
+
+model Alert {
+  id          String        @id @default(cuid())
+  type        AlertType
+  severity    AlertSeverity
+  title       String
+  description String
+  status      AlertStatus   @default(UNREAD)
+  data        Json?
+  createdAt   DateTime      @default(now())
+  businessId  String
+  business    Business      @relation(fields: [businessId], references: [id])
+  locationId  String?
+  location    Location?     @relation("LocationAlerts", fields: [locationId], references: [id])
+  operatorId  String?
+  operator    User?         @relation("OperatorAlerts", fields: [operatorId], references: [id])
+
+  @@index([businessId])
+  @@index([businessId, status])
+}
+
+// ═══════════════════════════ COMPLIANCE ═══════════════════════
+
+model ComplianceDoc {
+  id             String            @id @default(cuid())
+  type           ComplianceType
+  documentNumber String
+  issueDate      DateTime
+  expiryDate     DateTime?
+  fileUrl        String?
+  status         ComplianceDocStatus @default(VALID)
+  createdAt      DateTime          @default(now())
+  businessId     String
+  business       Business          @relation(fields: [businessId], references: [id])
+  locationId     String?
+  location       Location?         @relation("LocationDocs", fields: [locationId], references: [id])
+  operatorId     String?
+  operator       User?             @relation("OperatorDocs", fields: [operatorId], references: [id])
+
+  @@index([businessId])
+}
+
+// ═══════════════════════════ WEATHER ═════════════════════════
+
+model WeatherLog {
+  id        String           @id @default(cuid())
+  date      DateTime         @db.Date
+  tempHigh  Float
+  tempLow   Float
+  condition WeatherCondition
+  humidity  Int
+  businessId String
+  locationId String
+  location   Location         @relation(fields: [locationId], references: [id])
+
+  @@unique([locationId, date])
+  @@index([businessId])
+}

@@ -1,0 +1,41 @@
+{
+  "name": "multi-tenant-erp-backend",
+  "version": "1.0.0",
+  "description": "Multi-tenant REST API server for multi-vertical business operations platform",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "@fastify/rate-limit": "^9.1.0",
+    "@fastify/swagger": "^8.14.0",
+    "@fastify/swagger-ui": "^3.0.0",
+    "@prisma/client": "^5.14.0",
+    "bullmq": "^5.7.0",
+    "fastify": "^4.27.0",
+    "fastify-type-provider-zod": "^1.1.9",
+    "ioredis": "^5.4.1",
+    "jsonwebtoken": "^9.0.2",
+    "zod": "^3.23.8",
+    "@aws-sdk/client-s3": "^3.500.0",
+    "razorpay": "^2.9.2"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20.12.0",
+    "prisma": "^5.14.0",
+    "tsx": "^4.11.0",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}
