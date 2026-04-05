@@ -12,6 +12,7 @@ class OperatorScaffold extends ConsumerWidget {
   static const _tabs = [
     (icon: Icons.home, label: 'Home', path: '/op/home'),
     (icon: Icons.point_of_sale, label: 'Sell', path: '/op/sell'),
+    (icon: Icons.inventory_2, label: 'Stock', path: '/op/stock'),
     (icon: Icons.fact_check, label: 'Reconcile', path: '/op/reconcile'),
     (icon: Icons.account_balance_wallet, label: 'Salary', path: '/op/salary'),
   ];

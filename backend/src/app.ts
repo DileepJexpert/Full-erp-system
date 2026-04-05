@@ -50,6 +50,9 @@ import { rfmRoutes } from './modules/analytics/rfm.routes.js';
 import { marketplaceRoutes } from './modules/marketplace/marketplace.routes.js';
 import { supplierRoutes as marketplaceSellerRoutes } from './modules/marketplace/supplier.routes.js';
 
+// V3.1: Smart Purchase Entry
+import { smartPurchaseRoutes } from './modules/purchases/smart-purchase.routes.js';
+
 export async function buildApp() {
   const app = Fastify({
     logger: {
@@ -149,6 +152,9 @@ export async function buildApp() {
     await api.register(rfmRoutes);
     await api.register(marketplaceRoutes);
     await api.register(marketplaceSellerRoutes);
+
+    // V3.1: Smart Purchase Entry
+    await api.register(smartPurchaseRoutes);
   }, { prefix: API_PREFIX });
 
   return app;

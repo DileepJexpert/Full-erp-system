@@ -5,6 +5,7 @@ export type Intent =
   | { type: 'QUERY_REVENUE' }
   | { type: 'QUERY_STOCK' }
   | { type: 'QUERY_SALARY' }
+  | { type: 'PURCHASE_TEXT'; rawText: string }
   | { type: 'SHOW_HELP' }
   | { type: 'STATE_CONTINUE' }
   | { type: 'UNKNOWN'; rawText: string };
@@ -51,10 +52,34 @@ export function classifyIntent(message: string, sessionState: string): Intent {
     return { type: 'QUERY_SALARY' };
   }
 
+  // Purchase-like text detection (numbers + items + prices)
+  if (looksLikePurchase(lower)) {
+    return { type: 'PURCHASE_TEXT', rawText: message };
+  }
+
   // Help / Menu keywords
   if (/^(help|madad|मदद|menu)/i.test(lower)) {
     return { type: 'SHOW_HELP' };
   }
 
   return { type: 'UNKNOWN', rawText: message };
+}
+
+/**
+ * Detect if a text message looks like a purchase/delivery bill.
+ * Patterns: numbers + item-like words + price indicators.
+ * E.g. "500 plate 200 cup 50 sauce total 3500" or "20kg pyaaz 40/kg"
+ */
+export function looksLikePurchase(text: string): boolean {
+  const lower = text.toLowerCase();
+  const pricePattern = /(\d+)\s*(rs|rupay|rupee|rupaiye|@|\/-)/i;
+  const qtyPattern = /(\d+)\s*(kg|kilo|pcs|packet|strip|bottle|litre|dozen|box|pack)/i;
+  const totalPattern = /(total|kul|jama|grand)/i;
+  const digitCount = (lower.match(/\d/g) || []).length;
+
+  // Must have at least 3 digits and either price or quantity patterns
+  if (digitCount < 3) return false;
+  if (pricePattern.test(lower) || qtyPattern.test(lower)) return true;
+  if (totalPattern.test(lower) && digitCount >= 4) return true;
+  return false;
 }

@@ -214,6 +214,13 @@ model Business {
   enableAI              Boolean      @default(true)
   enableMarketplace     Boolean      @default(false)
   enableRecurring       Boolean      @default(false)
+  // V3.1: Smart Purchase settings
+  purchaseApprovalThreshold  Float   @default(0)
+  operatorCanEnterPurchase   Boolean @default(true)
+  notifyOwnerOnPurchase      Boolean @default(true)
+  enableBillScanning         Boolean @default(true)
+  enableVoiceEntry           Boolean @default(true)
+  enableBarcodeScanning      Boolean @default(false)
 
   locationLabel         String       @default("Store")
   staffLabel            String       @default("Staff")
@@ -336,6 +343,13 @@ model Item {
   businessId      String
   business        Business     @relation(fields: [businessId], references: [id])
 
+  // V3.1: Smart Purchase Entry fields
+  barcode              String?
+  aliases              String[]  @default([])
+  lastPurchasePrice    Float?
+  avgPurchasePrice     Float?
+  preferredSupplierId  String?
+
   variants        ItemVariant[]
   dispatchItems   DispatchItem[]
   billItems       BillItem[]
@@ -343,6 +357,7 @@ model Item {
   templateItems   MenuTemplateItem[]
   purchaseItems   PurchaseItem[]
 
+  @@unique([barcode, businessId])
   @@index([businessId])
 }
 
@@ -668,7 +683,23 @@ model Purchase {
   createdBy     User                  @relation("PurchaseCreator", fields: [createdById], references: [id])
   items         PurchaseItem[]
 
+  // V3.1: Smart Purchase Entry fields
+  entryMethod       String    @default("MANUAL")
+  // MANUAL | PHOTO_SCAN | WHATSAPP_TEXT | WHATSAPP_PHOTO | VOICE | REPEAT | BARCODE | BATCH_SCAN
+  billPhotoUrl      String?
+  billPhotoKey      String?
+  aiExtractedRaw    Json?
+  aiConfidence      Float?
+  voiceTranscript   String?
+  approvalStatus    String    @default("AUTO_APPROVED")
+  // AUTO_APPROVED | PENDING_APPROVAL | APPROVED | REJECTED
+  approvedById      String?
+  approvedAt        DateTime?
+  rejectionReason   String?
+  locationId        String?
+
   @@index([businessId])
+  @@index([businessId, supplierId])
 }
 
 model PurchaseItem {
@@ -770,6 +801,7 @@ enum WhatsAppSessionState {
   CREATING_BILL_PAYMENT
   RECONCILING_ITEMS
   QUERYING
+  AWAITING_PURCHASE_CONFIRM
 }
 
 enum WAMessageDirection {
@@ -1196,4 +1228,32 @@ model StockTransferItem {
   transferId  String
   transfer    StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
   itemId      String
+}
+
+// ═══════════════════════════ V3.1: SMART PURCHASE ENTRY ═════════════
+
+model PurchaseTemplate {
+  id          String    @id @default(cuid())
+  name        String
+  supplierId  String
+  items       Json
+  usageCount  Int       @default(0)
+  lastUsedAt  DateTime?
+  businessId  String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([businessId])
+  @@index([businessId, supplierId])
+}
+
+model ItemAliasGlobal {
+  id        String @id @default(cuid())
+  alias     String
+  canonical String
+  category  String
+  language  String @default("hi")
+
+  @@unique([alias, category])
+  @@index([alias])
 }

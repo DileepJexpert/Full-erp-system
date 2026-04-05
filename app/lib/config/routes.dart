@@ -50,6 +50,18 @@ import '../features/owner/loyalty/segments_screen.dart';
 import '../features/owner/loyalty/feedback_screen.dart';
 import '../features/owner/inventory/transfer_screen.dart';
 
+// Purchase system screens
+import '../features/purchases/scan/bill_camera_screen.dart';
+import '../features/purchases/scan/scan_review_screen.dart';
+import '../features/purchases/scan/batch_scan_screen.dart';
+import '../features/purchases/voice/voice_entry_screen.dart';
+import '../features/purchases/repeat/repeat_purchase_screen.dart';
+import '../features/purchases/barcode/barcode_scanner_screen.dart';
+import '../features/purchases/templates/purchase_templates_screen.dart';
+import '../features/owner/purchases/approval_screen.dart';
+import '../features/owner/settings/aliases_screen.dart';
+import '../features/operator/stock/stock_tab_screen.dart';
+
 // Operator screens
 import '../features/operator/home/operator_home_screen.dart';
 import '../features/operator/pos/pos_screen.dart';
@@ -140,6 +152,19 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/loyalty/segments', builder: (_, __) => const SegmentsScreen()),
           GoRoute(path: '/loyalty/feedback', builder: (_, __) => const FeedbackDashboardScreen()),
           GoRoute(path: '/inventory/transfer', builder: (_, __) => const StockTransferScreen()),
+          // Smart purchase system routes
+          GoRoute(path: '/purchases/scan', builder: (_, __) => const BillCameraScreen()),
+          GoRoute(path: '/purchases/scan/review', builder: (_, state) {
+            final data = state.extra as Map<String, dynamic>? ?? {};
+            return ScanReviewScreen(extractedData: data);
+          }),
+          GoRoute(path: '/purchases/scan/batch', builder: (_, __) => const BatchScanScreen()),
+          GoRoute(path: '/purchases/voice', builder: (_, __) => const VoiceEntryScreen()),
+          GoRoute(path: '/purchases/repeat', builder: (_, __) => const RepeatPurchaseScreen()),
+          GoRoute(path: '/purchases/barcode', builder: (_, __) => const BarcodeScannerScreen()),
+          GoRoute(path: '/purchases/templates', builder: (_, __) => const PurchaseTemplatesScreen()),
+          GoRoute(path: '/purchases/approvals', builder: (_, __) => const PurchaseApprovalScreen()),
+          GoRoute(path: '/settings/aliases', builder: (_, __) => const AliasesScreen()),
         ],
       ),
 
@@ -149,6 +174,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(path: '/op/home', builder: (_, __) => const OperatorHomeScreen()),
           GoRoute(path: '/op/sell', builder: (_, __) => const PosScreen()),
+          GoRoute(path: '/op/stock', builder: (_, __) => const StockTabScreen()),
           GoRoute(path: '/op/reconcile', builder: (_, __) => const ReconcileScreen()),
           GoRoute(path: '/op/salary', builder: (_, __) => const MySalaryScreen()),
           GoRoute(path: '/op/leave', builder: (_, __) => const LeaveRequestScreen()),

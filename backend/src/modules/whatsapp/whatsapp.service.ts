@@ -6,6 +6,10 @@ import {
   handleBillPayment,
   handleReconciliation,
 } from './state-machine.js';
+import {
+  handlePurchaseTextParse,
+  handlePurchaseConfirm,
+} from './purchase-handler.js';
 
 /**
  * Find or create a WhatsApp session for a phone number.
@@ -183,7 +187,10 @@ function getHelpText(): string {
     `"revenue" / "kamai" / "aaj" - Today's revenue\n` +
     `"stock" / "maal" - Stock levels\n` +
     `"salary" / "tankhwah" - Salary info\n` +
-    `"help" / "madad" - This menu`
+    `"help" / "madad" - This menu\n\n` +
+    `*Purchase Entry:*\n` +
+    `Forward supplier bill text (e.g. "500 plate 200 cup total 3500")\n` +
+    `Or forward a bill photo`
   );
 }
 
@@ -277,6 +284,10 @@ async function handleIntent(
       if (!session.businessId) return 'Account not linked to a business.';
       return handleSalaryQuery(session.businessId, session.phone);
 
+    case 'PURCHASE_TEXT':
+      if (!session.businessId) return 'Account not linked to a business.';
+      return handlePurchaseTextParse(session, message);
+
     case 'SHOW_HELP':
       return getHelpText();
 
@@ -347,6 +358,9 @@ export async function processInboundMessage(
           }
           break;
         }
+        case 'AWAITING_PURCHASE_CONFIRM':
+          response = await handlePurchaseConfirm(session, text);
+          break;
         default:
           response = 'Unknown state. Resetting. Send "help" for commands.';
           await prisma.whatsAppSession.update({
