@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../shared/helpers/terminology.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_skeleton.dart';
@@ -12,15 +13,16 @@ class LocationsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final locationsAsync = ref.watch(locationsProvider);
+    final t = ref.watch(terminologyProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Locations'),
+        title: Text(t.locations),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/locations/new'),
         icon: const Icon(Icons.add),
-        label: const Text('Add Location'),
+        label: Text('Add ${t.location}'),
       ),
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(locationsProvider),

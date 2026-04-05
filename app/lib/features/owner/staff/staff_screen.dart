@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../shared/helpers/terminology.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_skeleton.dart';
@@ -19,15 +20,16 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
   @override
   Widget build(BuildContext context) {
     final staffAsync = ref.watch(staffProvider);
+    final t = ref.watch(terminologyProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Staff'),
+        title: Text(t.staffPlural),
         actions: [
           FilledButton.icon(
             onPressed: () => context.push('/staff/new'),
             icon: const Icon(Icons.person_add, size: 18),
-            label: const Text('Add Staff'),
+            label: Text('Add ${t.staff}'),
           ),
           const SizedBox(width: 12),
         ],
@@ -43,7 +45,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
               // Search bar
               TextField(
                 decoration: InputDecoration(
-                  hintText: 'Search staff...',
+                  hintText: 'Search ${t.staffPlural.toLowerCase()}...',
                   prefixIcon: const Icon(Icons.search),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),

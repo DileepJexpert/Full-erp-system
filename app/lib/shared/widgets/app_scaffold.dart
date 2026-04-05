@@ -117,36 +117,38 @@ class AppScaffold extends ConsumerWidget {
   }
 
   Widget _buildNavItems(BuildContext context, BusinessConfig? config, String currentPath, bool isCollapsed) {
-    final features = config?.features;
-    final items = <_SidebarItem>[
+    final f = config?.features;
+
+    final coreItems = <_SidebarItem>[
       const _SidebarItem(icon: Icons.dashboard, label: 'Dashboard', route: '/dashboard'),
-      if (features?.enableDispatch ?? true)
+      if (f?.enableDispatch ?? false)
         const _SidebarItem(icon: Icons.send, label: 'Dispatch', route: '/dispatch'),
-      if (features?.enableReconciliation ?? true)
+      if (f?.enableReconciliation ?? false)
         const _SidebarItem(icon: Icons.fact_check, label: 'Reconcile', route: '/reconcile'),
       const _SidebarItem(icon: Icons.inventory_2, label: 'Inventory', route: '/inventory'),
       const _SidebarItem(icon: Icons.restaurant_menu, label: 'Recipes/BOM', route: '/recipes'),
       const _SidebarItem(icon: Icons.receipt_long, label: 'Billing', route: '/billing'),
       const _SidebarItem(icon: Icons.account_balance_wallet, label: 'Salary', route: '/salary'),
-      const _SidebarItem(icon: Icons.store, label: config?.locationLabel ?? 'Locations', route: '/locations'),
-      const _SidebarItem(icon: Icons.people, label: 'Staff', route: '/staff'),
+      _SidebarItem(icon: Icons.store, label: config?.locationLabel ?? 'Locations', route: '/locations'),
+      _SidebarItem(icon: Icons.people, label: config?.staffLabel ?? 'Staff', route: '/staff'),
     ];
 
-    final items2 = <_SidebarItem>[
+    final procurementItems = <_SidebarItem>[
       const _SidebarItem(icon: Icons.local_shipping, label: 'Suppliers', route: '/suppliers'),
       const _SidebarItem(icon: Icons.assignment_return, label: 'Returns', route: '/returns'),
-      const _SidebarItem(icon: Icons.menu_book, label: 'Credit Ledger', route: '/credit'),
+      if (f?.enableCreditLedger ?? false)
+        const _SidebarItem(icon: Icons.menu_book, label: 'Credit Ledger', route: '/credit'),
       const _SidebarItem(icon: Icons.receipt, label: 'Expenses', route: '/expenses'),
       const _SidebarItem(icon: Icons.attach_money, label: 'Cash', route: '/cash'),
     ];
 
-    final items3 = <_SidebarItem>[
-      if (features?.enableAnomaly ?? true)
+    final advancedItems = <_SidebarItem>[
+      if (f?.enableAnomaly ?? false)
         const _SidebarItem(icon: Icons.warning_amber, label: 'Alerts', route: '/alerts', showBadge: true),
-      if (features?.enablePerformance ?? true)
+      if (f?.enablePerformance ?? false)
         const _SidebarItem(icon: Icons.leaderboard, label: 'Performance', route: '/performance'),
       const _SidebarItem(icon: Icons.verified, label: 'Compliance', route: '/compliance'),
-      if (features?.enableLoyalty ?? false)
+      if (f?.enableLoyalty ?? false)
         const _SidebarItem(icon: Icons.card_giftcard, label: 'Loyalty', route: '/loyalty'),
       const _SidebarItem(icon: Icons.rate_review, label: 'Feedback', route: '/feedback'),
       const _SidebarItem(icon: Icons.smart_toy, label: 'AI Advisor', route: '/ai'),
@@ -157,25 +159,28 @@ class AppScaffold extends ConsumerWidget {
       const _SidebarItem(icon: Icons.bar_chart, label: 'Reports', route: '/reports'),
       const _SidebarItem(icon: Icons.request_quote, label: 'Estimates', route: '/estimates'),
       const _SidebarItem(icon: Icons.local_offer, label: 'Discounts', route: '/discounts'),
-      const _SidebarItem(icon: Icons.calendar_month, label: 'Appointments', route: '/appointments'),
+      if (f?.enableAppointments ?? false)
+        const _SidebarItem(icon: Icons.calendar_month, label: 'Appointments', route: '/appointments'),
       const _SidebarItem(icon: Icons.notification_important, label: 'Reminders', route: '/reminders'),
+      if (f?.enableWeather ?? false)
+        const _SidebarItem(icon: Icons.cloud, label: 'Weather', route: '/weather'),
       const _SidebarItem(icon: Icons.settings, label: 'Settings', route: '/settings'),
     ];
 
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 8),
       children: [
-        ...items.map((i) => _navTile(context, i, currentPath, isCollapsed)),
+        ...coreItems.map((i) => _navTile(context, i, currentPath, isCollapsed)),
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Divider(color: Color(0xFF2D3348), height: 1),
         ),
-        ...items2.map((i) => _navTile(context, i, currentPath, isCollapsed)),
+        ...procurementItems.map((i) => _navTile(context, i, currentPath, isCollapsed)),
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Divider(color: Color(0xFF2D3348), height: 1),
         ),
-        ...items3.map((i) => _navTile(context, i, currentPath, isCollapsed)),
+        ...advancedItems.map((i) => _navTile(context, i, currentPath, isCollapsed)),
       ],
     );
   }
