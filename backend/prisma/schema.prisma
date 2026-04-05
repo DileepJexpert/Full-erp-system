@@ -436,8 +436,14 @@ model Dispatch {
   createdById String
   createdBy   User           @relation("DispatchCreator", fields: [createdById], references: [id])
 
-  items          DispatchItem[]
-  reconciliation Reconciliation?
+  items             DispatchItem[]
+  reconciliation    Reconciliation?
+  deliveryPhotoUrl  String?
+  deliverySignUrl   String?
+  deliveryGpsLat    Float?
+  deliveryGpsLng    Float?
+  deliveredAt       DateTime?
+  deliveredById     String?
 
   @@unique([locationId, date])
   @@index([businessId])
@@ -480,6 +486,8 @@ model Bill {
   loyaltyPointsEarned   Int                  @default(0)
   loyaltyPointsRedeemed Int                  @default(0)
   loyaltyDiscount       Float                @default(0)
+  discountAmount        Float                @default(0)
+  couponCode            String?
   receiptPrinted        Boolean              @default(false)
   customerName          String?
   customerPhone         String?
@@ -730,6 +738,8 @@ model Customer {
   totalSpent     Float    @default(0)
   loyaltyPoints  Int      @default(0)
   lifetimePoints Int      @default(0)
+  creditBalance  Float    @default(0)
+  storeCreditBalance Float @default(0)
   createdAt      DateTime @default(now())
   businessId     String
   business       Business @relation(fields: [businessId], references: [id])
@@ -1289,4 +1299,338 @@ model KioskDevice {
   @@unique([deviceId, businessId])
   @@index([businessId])
   @@index([locationId])
+}
+
+// ═══════════════════════════ V4: SALES RETURNS & CREDIT NOTES ═══════
+
+enum ReturnReason {
+  DAMAGED
+  EXPIRED
+  WRONG_ITEM
+  QUALITY_ISSUE
+  CUSTOMER_CHANGE
+  OTHER
+}
+
+enum ReturnStatus {
+  RETURN_PENDING
+  RETURN_APPROVED
+  RETURN_REJECTED
+  RETURN_COMPLETED
+}
+
+enum RefundMode {
+  CASH_REFUND
+  STORE_CREDIT
+  EXCHANGE
+  ORIGINAL_METHOD
+}
+
+model SalesReturn {
+  id              String       @id @default(cuid())
+  returnNumber    Int          @default(autoincrement())
+  date            DateTime     @db.Date
+  reason          ReturnReason
+  refundMode      RefundMode   @default(CASH_REFUND)
+  status          ReturnStatus @default(RETURN_PENDING)
+  subtotal        Float        @default(0)
+  refundAmount    Float        @default(0)
+  storeCreditAmount Float      @default(0)
+  notes           String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  businessId      String
+  locationId      String
+  originalBillId  String
+  customerId      String?
+  processedById   String
+
+  items           SalesReturnItem[]
+
+  @@index([businessId])
+  @@index([businessId, date])
+  @@index([originalBillId])
+}
+
+model SalesReturnItem {
+  id            String      @id @default(cuid())
+  quantity      Int
+  unitPrice     Float
+  lineTotal     Float
+  isResaleable  Boolean     @default(true)
+  returnId      String
+  salesReturn   SalesReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  itemId        String
+
+  @@unique([returnId, itemId])
+}
+
+// ═══════════════════════════ V4: CUSTOMER CREDIT LEDGER (KHATA) ═════
+
+enum CreditTxnType {
+  CREDIT_SALE
+  PAYMENT_RECEIVED
+  CREDIT_NOTE_ISSUED
+  OPENING_BALANCE
+  ADJUSTMENT
+}
+
+model CreditTransaction {
+  id            String        @id @default(cuid())
+  date          DateTime      @db.Date
+  type          CreditTxnType
+  amount        Float
+  runningBalance Float
+  description   String?
+  billId        String?
+  paymentMode   PaymentMode?
+  paymentRef    String?
+  createdAt     DateTime      @default(now())
+
+  businessId    String
+  customerId    String
+  locationId    String?
+  recordedById  String
+
+  @@index([businessId])
+  @@index([businessId, customerId])
+  @@index([customerId, date])
+}
+
+// ═══════════════════════════ V4: BILL OF MATERIALS / RECIPES ════════
+
+model Recipe {
+  id            String            @id @default(cuid())
+  name          String
+  outputQty     Float             @default(1)
+  outputUnit    String            @default("pcs")
+  isActive      Boolean           @default(true)
+  notes         String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  businessId    String
+  outputItemId  String
+  ingredients   RecipeIngredient[]
+
+  @@unique([outputItemId, businessId])
+  @@index([businessId])
+}
+
+model RecipeIngredient {
+  id            String @id @default(cuid())
+  quantity      Float
+  unit          String
+  wastagePercent Float @default(0)
+
+  recipeId      String
+  recipe        Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredientItemId String
+
+  @@unique([recipeId, ingredientItemId])
+}
+
+// ═══════════════════════════ V4: ESTIMATES / QUOTATIONS ═════════════
+
+enum EstimateStatus {
+  ESTIMATE_DRAFT
+  ESTIMATE_SENT
+  ESTIMATE_ACCEPTED
+  ESTIMATE_REJECTED
+  ESTIMATE_CONVERTED
+  ESTIMATE_EXPIRED
+}
+
+model Estimate {
+  id              String         @id @default(cuid())
+  estimateNumber  Int            @default(autoincrement())
+  date            DateTime       @db.Date
+  validUntil      DateTime?      @db.Date
+  status          EstimateStatus @default(ESTIMATE_DRAFT)
+  subtotal        Float          @default(0)
+  cgstAmount      Float          @default(0)
+  sgstAmount      Float          @default(0)
+  total           Float
+  notes           String?
+  termsAndConditions String?
+  convertedBillId String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  businessId      String
+  customerId      String?
+  customerName    String?
+  customerPhone   String?
+  locationId      String?
+  createdById     String
+
+  items           EstimateItem[]
+
+  @@index([businessId])
+  @@index([businessId, status])
+}
+
+model EstimateItem {
+  id          String   @id @default(cuid())
+  description String
+  quantity    Float
+  unitPrice   Float
+  lineTotal   Float
+  estimateId  String
+  estimate    Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  itemId      String?
+
+  @@unique([estimateId, itemId])
+}
+
+// ═══════════════════════════ V4: DISCOUNT ENGINE ════════════════════
+
+enum DiscountType {
+  PERCENTAGE_OFF
+  FLAT_OFF
+  BUY_X_GET_Y
+  MIN_CART_VALUE
+  MEMBER_TIER
+  FLASH_SALE
+}
+
+model DiscountRule {
+  id              String       @id @default(cuid())
+  name            String
+  type            DiscountType
+  value           Float
+  minCartValue    Float?
+  maxDiscount     Float?
+  buyQty          Int?
+  getQty          Int?
+  applicableItems String[]     @default([])
+  applicableCats  String[]     @default([])
+  startDate       DateTime?
+  endDate         DateTime?
+  isActive        Boolean      @default(true)
+  timesUsed       Int          @default(0)
+  maxUsage        Int?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  businessId      String
+  locationId      String?
+
+  @@index([businessId])
+  @@index([businessId, isActive])
+}
+
+model Coupon {
+  id              String    @id @default(cuid())
+  code            String
+  discountRuleId  String
+  maxRedemptions  Int?
+  timesRedeemed   Int       @default(0)
+  expiresAt       DateTime?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+
+  businessId      String
+
+  @@unique([code, businessId])
+  @@index([businessId])
+}
+
+// ═══════════════════════════ V4: APPOINTMENT SCHEDULING ═════════════
+
+enum AppointmentStatus {
+  APPT_BOOKED
+  APPT_CONFIRMED
+  APPT_IN_PROGRESS
+  APPT_COMPLETED
+  APPT_CANCELLED
+  APPT_NO_SHOW
+}
+
+model Appointment {
+  id              String            @id @default(cuid())
+  date            DateTime          @db.Date
+  startTime       String
+  endTime         String
+  status          AppointmentStatus @default(APPT_BOOKED)
+  serviceName     String
+  amount          Float?
+  notes           String?
+  reminderSent    Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  businessId      String
+  locationId      String
+  customerId      String?
+  customerName    String
+  customerPhone   String
+  assignedToId    String?
+  createdById     String
+
+  @@index([businessId])
+  @@index([businessId, locationId, date])
+  @@index([customerPhone, businessId])
+}
+
+// ═══════════════════════════ V4: KITCHEN DISPLAY SYSTEM ═════════════
+
+enum KdsOrderStatus {
+  KDS_NEW
+  KDS_PREPARING
+  KDS_READY
+  KDS_SERVED
+}
+
+model KdsOrder {
+  id            String         @id @default(cuid())
+  orderNumber   Int
+  status        KdsOrderStatus @default(KDS_NEW)
+  priority      Int            @default(0)
+  notes         String?
+  startedAt     DateTime?
+  readyAt       DateTime?
+  servedAt      DateTime?
+  createdAt     DateTime       @default(now())
+
+  businessId    String
+  locationId    String
+  billId        String
+  items         KdsOrderItem[]
+
+  @@index([businessId, locationId, status])
+  @@index([billId])
+}
+
+model KdsOrderItem {
+  id          String   @id @default(cuid())
+  itemName    String
+  quantity    Int
+  notes       String?
+  orderId     String
+  order       KdsOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  itemId      String?
+}
+
+// ═══════════════════════════ V4: DELIVERY PROOF ═════════════════════
+
+model DeliveryProof {
+  id              String   @id @default(cuid())
+  photoUrl        String?
+  signatureUrl    String?
+  gpsLatitude     Float?
+  gpsLongitude    Float?
+  deliveredAt     DateTime @default(now())
+  receiverName    String?
+  notes           String?
+
+  businessId      String
+  dispatchId      String?
+  billId          String?
+  deliveredById   String
+
+  @@index([businessId])
+  @@index([dispatchId])
+  @@index([billId])
 }

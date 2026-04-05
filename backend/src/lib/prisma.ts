@@ -20,6 +20,11 @@ const TENANT_SCOPED_MODELS = new Set([
   'CustomerFeedback', 'StockTransfer',
   // V3.1 + V3.2 additions
   'PurchaseTemplate', 'KioskDevice',
+  // V4: New feature models
+  'SalesReturn', 'SalesReturnItem', 'CreditTransaction',
+  'Recipe', 'RecipeIngredient', 'Estimate', 'EstimateItem',
+  'DiscountRule', 'Coupon', 'Appointment',
+  'KdsOrder', 'KdsOrderItem', 'DeliveryProof',
 ]);
 
 function createPrismaClient(): PrismaClient {
