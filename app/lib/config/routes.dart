@@ -62,9 +62,20 @@ import '../features/owner/purchases/approval_screen.dart';
 import '../features/owner/settings/aliases_screen.dart';
 import '../features/operator/stock/stock_tab_screen.dart';
 
+// V4 screens
+import '../features/owner/returns/returns_screen.dart';
+import '../features/owner/credit/credit_screen.dart';
+import '../features/owner/recipes/recipes_screen.dart';
+import '../features/owner/estimates/estimates_screen.dart';
+import '../features/owner/discounts/discounts_screen.dart';
+import '../features/owner/appointments/appointments_screen.dart';
+import '../features/owner/reminders/reminders_screen.dart';
+import '../features/operator/delivery/delivery_proof_screen.dart';
+
 // Kiosk screens
 import '../features/kiosk/kiosk_setup_screen.dart';
 import '../features/kiosk/kiosk_feedback_screen.dart';
+import '../features/kiosk/kds_screen.dart';
 
 // Owner feedback dashboard (kiosk analytics)
 import '../features/owner/feedback/feedback_dashboard_screen.dart'
@@ -177,11 +188,20 @@ final routerProvider = Provider<GoRouter>((ref) {
           // Kiosk routes
           GoRoute(path: '/feedback', builder: (_, __) => const kiosk_feedback.FeedbackDashboardScreen()),
           GoRoute(path: '/kiosk/setup', builder: (_, __) => const KioskSetupScreen()),
+          // V4 routes
+          GoRoute(path: '/returns', builder: (_, __) => const ReturnsScreen()),
+          GoRoute(path: '/credit', builder: (_, __) => const CreditScreen()),
+          GoRoute(path: '/recipes', builder: (_, __) => const RecipesScreen()),
+          GoRoute(path: '/estimates', builder: (_, __) => const EstimatesScreen()),
+          GoRoute(path: '/discounts', builder: (_, __) => const DiscountsScreen()),
+          GoRoute(path: '/appointments', builder: (_, __) => const AppointmentsScreen()),
+          GoRoute(path: '/reminders', builder: (_, __) => const RemindersScreen()),
         ],
       ),
 
       // Kiosk mode (standalone, outside shell routes)
       GoRoute(path: '/kiosk/feedback', builder: (_, __) => const KioskFeedbackScreen()),
+      GoRoute(path: '/kds', builder: (_, __) => const KdsScreen()),
 
       // Operator shell
       ShellRoute(
@@ -193,6 +213,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/op/reconcile', builder: (_, __) => const ReconcileScreen()),
           GoRoute(path: '/op/salary', builder: (_, __) => const MySalaryScreen()),
           GoRoute(path: '/op/leave', builder: (_, __) => const LeaveRequestScreen()),
+          GoRoute(path: '/op/delivery-proof', builder: (_, __) => const DeliveryProofScreen()),
         ],
       ),
     ],

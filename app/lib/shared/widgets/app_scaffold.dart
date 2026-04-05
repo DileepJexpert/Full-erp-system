@@ -125,6 +125,7 @@ class AppScaffold extends ConsumerWidget {
       if (features?.enableReconciliation ?? true)
         const _SidebarItem(icon: Icons.fact_check, label: 'Reconcile', route: '/reconcile'),
       const _SidebarItem(icon: Icons.inventory_2, label: 'Inventory', route: '/inventory'),
+      const _SidebarItem(icon: Icons.restaurant_menu, label: 'Recipes/BOM', route: '/recipes'),
       const _SidebarItem(icon: Icons.receipt_long, label: 'Billing', route: '/billing'),
       const _SidebarItem(icon: Icons.account_balance_wallet, label: 'Salary', route: '/salary'),
       const _SidebarItem(icon: Icons.store, label: config?.locationLabel ?? 'Locations', route: '/locations'),
@@ -133,6 +134,8 @@ class AppScaffold extends ConsumerWidget {
 
     final items2 = <_SidebarItem>[
       const _SidebarItem(icon: Icons.local_shipping, label: 'Suppliers', route: '/suppliers'),
+      const _SidebarItem(icon: Icons.assignment_return, label: 'Returns', route: '/returns'),
+      const _SidebarItem(icon: Icons.menu_book, label: 'Credit Ledger', route: '/credit'),
       const _SidebarItem(icon: Icons.receipt, label: 'Expenses', route: '/expenses'),
       const _SidebarItem(icon: Icons.attach_money, label: 'Cash', route: '/cash'),
     ];
@@ -152,6 +155,10 @@ class AppScaffold extends ConsumerWidget {
       const _SidebarItem(icon: Icons.storefront, label: 'Marketplace', route: '/marketplace'),
       const _SidebarItem(icon: Icons.menu_book, label: 'Templates', route: '/templates'),
       const _SidebarItem(icon: Icons.bar_chart, label: 'Reports', route: '/reports'),
+      const _SidebarItem(icon: Icons.request_quote, label: 'Estimates', route: '/estimates'),
+      const _SidebarItem(icon: Icons.local_offer, label: 'Discounts', route: '/discounts'),
+      const _SidebarItem(icon: Icons.calendar_month, label: 'Appointments', route: '/appointments'),
+      const _SidebarItem(icon: Icons.notification_important, label: 'Reminders', route: '/reminders'),
       const _SidebarItem(icon: Icons.settings, label: 'Settings', route: '/settings'),
     ];
 
