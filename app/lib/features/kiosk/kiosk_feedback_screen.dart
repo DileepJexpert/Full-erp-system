@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,15 +22,65 @@ const _tagLabels = <String, Map<String, String>>{
   'will_recommend': {'en': 'Will Recommend', 'hi': '\u0938\u093F\u092B\u093E\u0930\u093F\u0936 \u0915\u0930\u0942\u0902\u0917\u093E', 'emoji': '\uD83D\uDC4D'},
 };
 
-// ─── Rating Emojis ──────────────────────────────────────────
+// ─── Rating Data ────────────────────────────────────────────
 
 const _ratingEmojis = [
-  {'emoji': '\uD83D\uDE21', 'label': 'Terrible', 'hi': '\u092C\u0939\u0941\u0924 \u0916\u0930\u093E\u092C', 'color': 0xFFEF4444},
-  {'emoji': '\uD83D\uDE15', 'label': 'Bad', 'hi': '\u0916\u0930\u093E\u092C', 'color': 0xFFF97316},
-  {'emoji': '\uD83D\uDE10', 'label': 'OK', 'hi': '\u0920\u0940\u0915', 'color': 0xFFFBBF24},
-  {'emoji': '\uD83D\uDE0A', 'label': 'Good', 'hi': '\u0905\u091A\u094D\u091B\u093E', 'color': 0xFF84CC16},
-  {'emoji': '\uD83E\uDD29', 'label': 'Amazing', 'hi': '\u092C\u0939\u0941\u0924 \u0905\u091A\u094D\u091B\u093E', 'color': 0xFF22C55E},
+  '\uD83D\uDE21', // 1: angry
+  '\uD83D\uDE15', // 2: confused
+  '\uD83D\uDE10', // 3: neutral
+  '\uD83D\uDE0A', // 4: smile
+  '\uD83E\uDD29', // 5: star-struck
 ];
+
+const _ratingLabelsEn = ['Bad', 'Okay', 'Fine', 'Good', 'Great!'];
+const _ratingLabelsHi = [
+  '\u0916\u0930\u093E\u092C',
+  '\u0920\u0940\u0915',
+  '\u091A\u0932\u0924\u093E \u0939\u0948',
+  '\u0905\u091A\u094D\u091B\u093E',
+  '\u092C\u0939\u0941\u0924 \u092C\u0922\u093C\u093F\u092F\u093E',
+];
+
+const _ratingColors = [
+  Color(0xFFEF4444),
+  Color(0xFFF97316),
+  Color(0xFFFBBF24),
+  Color(0xFF84CC16),
+  Color(0xFF22C55E),
+];
+
+// ─── Confetti Particle ──────────────────────────────────────
+
+class _ConfettiParticle {
+  double startX;
+  double startY;
+  final Color color;
+  final double velocityX;
+  final double velocityY;
+  final double size;
+  final bool isRect;
+
+  double currentX;
+  double currentY;
+  double opacity = 1.0;
+
+  _ConfettiParticle({
+    required this.startX,
+    required this.startY,
+    required this.color,
+    required this.velocityX,
+    required this.velocityY,
+    required this.size,
+    required this.isRect,
+  })  : currentX = startX,
+        currentY = startY;
+
+  void update(double t) {
+    currentX = startX + velocityX * t * 140;
+    currentY = startY + velocityY * t * 140 + 0.5 * 800 * t * t;
+    opacity = (1.0 - t * 0.8).clamp(0.0, 1.0);
+  }
+}
 
 // ─── Kiosk Feedback Screen ──────────────────────────────────
 
@@ -37,62 +88,156 @@ class KioskFeedbackScreen extends ConsumerStatefulWidget {
   const KioskFeedbackScreen({super.key});
 
   @override
-  ConsumerState<KioskFeedbackScreen> createState() => _KioskFeedbackScreenState();
+  ConsumerState<KioskFeedbackScreen> createState() =>
+      _KioskFeedbackScreenState();
 }
 
-enum _KioskPhase { rating, phase2, thankYou }
+enum _Phase { rating, phase2, thankYou }
 
 class _KioskFeedbackScreenState extends ConsumerState<KioskFeedbackScreen>
     with TickerProviderStateMixin {
-  _KioskPhase _phase = _KioskPhase.rating;
+  _Phase _phase = _Phase.rating;
   int? _selectedRating;
   final Set<String> _selectedTags = {};
   final _commentController = TextEditingController();
   Timer? _autoResetTimer;
-  int _logoTapCount = 0;
-  DateTime? _lastLogoTap;
 
-  late AnimationController _fadeController;
-  late Animation<double> _fadeAnim;
-  late AnimationController _scaleController;
-  late Animation<double> _scaleAnim;
+  // Exit lock: 5 rapid taps on business name
+  final List<DateTime> _titleTaps = [];
+
+  // Animation controllers
+  late AnimationController _emojiScaleController;
+  late AnimationController _phaseTransitionController;
+  late AnimationController _confettiController;
+
+  // Confetti
+  final List<_ConfettiParticle> _confettiParticles = [];
+  final _random = Random();
 
   @override
   void initState() {
     super.initState();
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 400),
-    );
-    _fadeAnim = CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut);
-    _fadeController.forward();
+    // Lock to immersive full screen
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
-    _scaleController = AnimationController(
+    _emojiScaleController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-    _scaleAnim = CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut);
+
+    _phaseTransitionController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    )..value = 1.0;
+
+    _confettiController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..addListener(() {
+        if (_confettiParticles.isNotEmpty) {
+          setState(() {
+            for (final p in _confettiParticles) {
+              p.update(_confettiController.value);
+            }
+          });
+        }
+      });
   }
 
   @override
   void dispose() {
     _autoResetTimer?.cancel();
     _commentController.dispose();
-    _fadeController.dispose();
-    _scaleController.dispose();
+    _emojiScaleController.dispose();
+    _phaseTransitionController.dispose();
+    _confettiController.dispose();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
 
-  void _resetToPhase1() {
-    _autoResetTimer?.cancel();
-    setState(() {
-      _phase = _KioskPhase.rating;
-      _selectedRating = null;
-      _selectedTags.clear();
-      _commentController.clear();
+  // ─── Rating tap handler ─────────────────────────────────
+
+  void _onRatingTap(int rating) {
+    if (_phase != _Phase.rating) return;
+    HapticFeedback.mediumImpact();
+
+    setState(() => _selectedRating = rating);
+    _emojiScaleController.forward(from: 0);
+
+    // Confetti for positive ratings
+    if (rating >= 4) {
+      _spawnConfetti();
+    }
+
+    // Transition after short delay for animation
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (!mounted) return;
+      _moveToPhase2();
     });
-    _fadeController.reset();
-    _fadeController.forward();
+  }
+
+  void _spawnConfetti() {
+    _confettiParticles.clear();
+    final size = MediaQuery.of(context).size;
+    final centerX = size.width / 2;
+    final centerY = size.height * 0.45;
+
+    for (int i = 0; i < 50; i++) {
+      _confettiParticles.add(_ConfettiParticle(
+        startX: centerX + (_random.nextDouble() - 0.5) * 100,
+        startY: centerY,
+        color: [
+          const Color(0xFFFF6B6B),
+          const Color(0xFFFFD93D),
+          const Color(0xFF6BCB77),
+          const Color(0xFF4D96FF),
+          const Color(0xFFC77DFF),
+          const Color(0xFFFF922B),
+          const Color(0xFFFF85A1),
+        ][_random.nextInt(7)],
+        velocityX: (_random.nextDouble() - 0.5) * 8,
+        velocityY: -2 - _random.nextDouble() * 6,
+        size: 5 + _random.nextDouble() * 9,
+        isRect: _random.nextBool(),
+      ));
+    }
+    _confettiController.forward(from: 0);
+  }
+
+  void _moveToPhase2() {
+    final config = ref.read(kioskConfigProvider);
+
+    if (config.displayMode == KioskDisplayMode.simple) {
+      _submitFeedback();
+      _showThankYou();
+      return;
+    }
+
+    // For withTags mode and rating == 3, go straight to thank you
+    if (config.displayMode == KioskDisplayMode.withTags &&
+        _selectedRating == 3) {
+      _submitFeedback();
+      _showThankYou();
+      return;
+    }
+
+    // Slide-up transition to phase 2
+    _phaseTransitionController.value = 0;
+    _phaseTransitionController.forward();
+    setState(() => _phase = _Phase.phase2);
+    _startAutoReset();
+  }
+
+  void _showThankYou() {
+    _phaseTransitionController.value = 0;
+    _phaseTransitionController.forward();
+    setState(() => _phase = _Phase.thankYou);
+    _autoResetTimer?.cancel();
+    final config = ref.read(kioskConfigProvider);
+    _autoResetTimer = Timer(
+      Duration(seconds: config.autoResetSec),
+      _resetToRating,
+    );
   }
 
   void _startAutoReset() {
@@ -100,77 +245,76 @@ class _KioskFeedbackScreenState extends ConsumerState<KioskFeedbackScreen>
     final config = ref.read(kioskConfigProvider);
     _autoResetTimer = Timer(
       Duration(seconds: config.autoResetSec),
-      _resetToPhase1,
+      _resetToRating,
     );
   }
 
-  void _onRatingTap(int rating) {
-    HapticFeedback.mediumImpact();
+  void _resetToRating() {
+    _autoResetTimer?.cancel();
+    if (!mounted) return;
+    _emojiScaleController.reset();
+    _confettiParticles.clear();
+    _commentController.clear();
+    _phaseTransitionController.value = 0;
+    _phaseTransitionController.forward();
     setState(() {
-      _selectedRating = rating;
+      _phase = _Phase.rating;
+      _selectedRating = null;
+      _selectedTags.clear();
     });
-
-    _scaleController.reset();
-    _scaleController.forward();
-
-    // Determine phase 2 behavior
-    final config = ref.read(kioskConfigProvider);
-    final mode = config.displayMode;
-
-    if (mode == KioskDisplayMode.simple) {
-      _submitAndThank();
-    } else {
-      // Transition to phase 2
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (!mounted) return;
-        _fadeController.reset();
-        _fadeController.forward();
-        setState(() => _phase = _KioskPhase.phase2);
-        _startAutoReset();
-      });
-    }
   }
 
-  void _submitAndThank() {
-    final rating = _selectedRating;
-    if (rating == null) return;
+  // ─── Feedback submission ────────────────────────────────
 
-    // Fire-and-forget API call
+  Future<void> _submitFeedback({String? comment, List<String>? tags}) async {
+    if (_selectedRating == null) return;
     final submit = ref.read(submitFeedbackProvider);
-    submit(
-      rating: rating,
-      comment: _commentController.text.isNotEmpty ? _commentController.text : null,
+    await submit(
+      rating: _selectedRating!,
+      comment: comment,
+      tags: tags,
+    );
+  }
+
+  void _onSkip() {
+    _submitFeedback();
+    _showThankYou();
+  }
+
+  void _onSubmitComment() {
+    _submitFeedback(
+      comment: _commentController.text.isNotEmpty
+          ? _commentController.text
+          : null,
+    );
+    _showThankYou();
+  }
+
+  void _onSubmitTags() {
+    _submitFeedback(
       tags: _selectedTags.isNotEmpty ? _selectedTags.toList() : null,
     );
-
-    _fadeController.reset();
-    _fadeController.forward();
-    setState(() => _phase = _KioskPhase.thankYou);
-
-    // Auto-reset after thank you
-    _autoResetTimer?.cancel();
-    _autoResetTimer = Timer(const Duration(seconds: 3), _resetToPhase1);
+    _showThankYou();
   }
 
-  void _handleLogoTap() {
+  // ─── Kiosk lock (5 rapid taps to exit) ──────────────────
+
+  void _onTitleTap() {
     final now = DateTime.now();
-    if (_lastLogoTap != null && now.difference(_lastLogoTap!).inSeconds > 3) {
-      _logoTapCount = 0;
-    }
-    _lastLogoTap = now;
-    _logoTapCount++;
-
-    if (_logoTapCount >= 5) {
-      _logoTapCount = 0;
-      _showExitDialog();
+    _titleTaps.removeWhere(
+        (t) => now.difference(t) > const Duration(seconds: 3));
+    _titleTaps.add(now);
+    if (_titleTaps.length >= 5) {
+      _titleTaps.clear();
+      _showPinDialog();
     }
   }
 
-  void _showExitDialog() {
+  void _showPinDialog() {
     final pinController = TextEditingController();
     showDialog(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (ctx) => AlertDialog(
         title: const Text('Exit Kiosk Mode'),
         content: TextField(
@@ -190,16 +334,22 @@ class _KioskFeedbackScreenState extends ConsumerState<KioskFeedbackScreen>
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () {
               final config = ref.read(kioskConfigProvider);
               if (pinController.text == config.pin) {
                 Navigator.of(ctx).pop();
                 _exitKioskMode();
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Incorrect PIN')),
-                );
+                Navigator.of(ctx).pop();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Wrong PIN'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                }
               }
             },
             child: const Text('Exit'),
@@ -211,289 +361,381 @@ class _KioskFeedbackScreenState extends ConsumerState<KioskFeedbackScreen>
 
   void _exitKioskMode() {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    // Navigate back to the app's main route
-    Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
+    if (mounted) {
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
+    }
   }
+
+  // ─── Build ──────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(kioskConfigProvider);
-    final size = MediaQuery.of(context).size;
-    final isLandscape = size.width > size.height;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1D27),
-      body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnim,
-          child: Column(
-            children: [
-              // Header with business name + kiosk lock
-              _buildHeader(config),
-              // Main content
-              Expanded(
-                child: Center(
-                  child: _phase == _KioskPhase.rating
-                      ? _buildRatingPhase(config, isLandscape)
-                      : _phase == _KioskPhase.phase2
-                          ? _buildPhase2(config, isLandscape)
-                          : _buildThankYou(config),
+      backgroundColor: const Color(0xFF0F1117),
+      body: Stack(
+        children: [
+          // Subtle radial gradient background
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment(0, -0.3),
+                  radius: 1.2,
+                  colors: [Color(0xFF1E2030), Color(0xFF0F1117)],
                 ),
               ),
-              // Footer
-              _buildFooter(config),
+            ),
+          ),
+          // Main content
+          SafeArea(
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.03),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: _phaseTransitionController,
+                curve: Curves.easeOut,
+              )),
+              child: FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: _phaseTransitionController,
+                  curve: Curves.easeIn,
+                ),
+                child: _buildCurrentPhase(config),
+              ),
+            ),
+          ),
+          // Confetti overlay
+          ..._confettiParticles.map((p) => Positioned(
+                left: p.currentX,
+                top: p.currentY,
+                child: Opacity(
+                  opacity: p.opacity.clamp(0.0, 1.0),
+                  child: Transform.rotate(
+                    angle: p.velocityX * _confettiController.value * 2,
+                    child: Container(
+                      width: p.size,
+                      height: p.isRect ? p.size * 0.6 : p.size,
+                      decoration: BoxDecoration(
+                        color: p.color,
+                        borderRadius: BorderRadius.circular(
+                          p.isRect ? 2 : p.size / 2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCurrentPhase(KioskConfig config) {
+    switch (_phase) {
+      case _Phase.rating:
+        return _buildRatingPhase(config);
+      case _Phase.phase2:
+        return _buildPhase2(config);
+      case _Phase.thankYou:
+        return _buildThankYou(config);
+    }
+  }
+
+  // ─── Phase 1: Rating ───────────────────────────────────
+
+  Widget _buildRatingPhase(KioskConfig config) {
+    return Column(
+      children: [
+        const SizedBox(height: 24),
+        // Business name (tap target for exit lock)
+        GestureDetector(
+          onTap: _onTitleTap,
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+            child: Column(
+              children: [
+                Text(
+                  config.businessName.isNotEmpty
+                      ? config.businessName
+                      : 'Business',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 30,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                if (config.locationName.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    config.locationName,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.5),
+                      fontSize: 16,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const Spacer(flex: 2),
+        // Question text
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40),
+          child: Column(
+            children: [
+              const Text(
+                'How was your experience today?',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              if (config.showBilingual) ...[
+                const SizedBox(height: 10),
+                Text(
+                  '\u0906\u091C \u0915\u093E \u0905\u0928\u0941\u092D\u0935 \u0915\u0948\u0938\u093E \u0930\u0939\u093E?',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.55),
+                    fontSize: 22,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ],
+          ),
+        ),
+        const SizedBox(height: 48),
+        // Emoji rating row with large touch targets
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: List.generate(5, (i) => _buildEmojiButton(i, config)),
+          ),
+        ),
+        const Spacer(flex: 3),
+        // Powered by
+        Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Text(
+            'Powered by Business Manager',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.15),
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmojiButton(int index, KioskConfig config) {
+    final rating = index + 1;
+    final isSelected = _selectedRating == rating;
+    final hasSelection = _selectedRating != null;
+
+    return GestureDetector(
+      onTap: () => _onRatingTap(rating),
+      child: AnimatedScale(
+        scale: isSelected
+            ? 1.3
+            : hasSelection
+                ? 0.7
+                : 1.0,
+        duration: Duration(milliseconds: isSelected ? 300 : 200),
+        curve: isSelected ? Curves.elasticOut : Curves.easeOut,
+        child: AnimatedOpacity(
+          opacity: hasSelection && !isSelected ? 0.3 : 1.0,
+          duration: const Duration(milliseconds: 200),
+          child: Container(
+            // Minimum 100x100dp touch target
+            width: 100,
+            constraints: const BoxConstraints(minHeight: 100),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? _ratingColors[index].withOpacity(0.15)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(24),
+              border: isSelected
+                  ? Border.all(
+                      color: _ratingColors[index].withOpacity(0.4), width: 2)
+                  : null,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Large emoji (80+ dp)
+                Text(
+                  _ratingEmojis[index],
+                  style: const TextStyle(fontSize: 56, height: 1.2),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _ratingLabelsEn[index],
+                  style: TextStyle(
+                    color: isSelected
+                        ? _ratingColors[index]
+                        : Colors.white.withOpacity(0.7),
+                    fontSize: 15,
+                    fontWeight:
+                        isSelected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+                if (config.showBilingual) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    _ratingLabelsHi[index],
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(isSelected ? 0.6 : 0.35),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildHeader(KioskConfig config) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Row(
-        children: [
-          // Logo area (5-tap to exit)
-          GestureDetector(
-            onTap: _handleLogoTap,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFF2563EB).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.store, color: Color(0xFF2563EB), size: 24),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  config.locationName.isNotEmpty ? config.locationName : 'Feedback',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (config.businessName.isNotEmpty)
-                  Text(
-                    config.businessName,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
-                      fontSize: 13,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // ─── Phase 2: Comment or Tags ──────────────────────────
 
-  Widget _buildRatingPhase(KioskConfig config, bool isLandscape) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'How was your experience today?',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.95),
-              fontSize: isLandscape ? 26 : 24,
-              fontWeight: FontWeight.w700,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          if (config.showBilingual) ...[
-            const SizedBox(height: 6),
-            Text(
-              '\u0906\u091C \u0915\u093E \u0905\u0928\u0941\u092D\u0935 \u0915\u0948\u0938\u093E \u0930\u0939\u093E?',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
-                fontSize: isLandscape ? 20 : 18,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-          SizedBox(height: isLandscape ? 40 : 48),
-          // Emoji grid
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: List.generate(5, (i) {
-              final r = _ratingEmojis[i];
-              final rating = i + 1;
-              final isSelected = _selectedRating == rating;
-              return GestureDetector(
-                onTap: () => _onRatingTap(rating),
-                child: AnimatedScale(
-                  scale: isSelected ? 1.3 : 1.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: isLandscape ? 72 : 64,
-                        height: isLandscape ? 72 : 64,
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? Color(r['color'] as int).withOpacity(0.2)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(20),
-                          border: isSelected
-                              ? Border.all(color: Color(r['color'] as int), width: 2)
-                              : null,
-                        ),
-                        child: Center(
-                          child: Text(
-                            r['emoji'] as String,
-                            style: TextStyle(fontSize: isLandscape ? 44 : 40),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        r['label'] as String,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(isSelected ? 1.0 : 0.6),
-                          fontSize: 13,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                        ),
-                      ),
-                      if (config.showBilingual) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          r['hi'] as String,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(isSelected ? 0.8 : 0.4),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              );
-            }),
-          ),
-          SizedBox(height: isLandscape ? 24 : 32),
-          Text(
-            'Tap to rate',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.3),
-              fontSize: 14,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPhase2(KioskConfig config, bool isLandscape) {
-    final mode = config.displayMode;
-    final rating = _selectedRating ?? 3;
-
-    if (mode == KioskDisplayMode.withComment) {
-      return _buildCommentPhase(config, isLandscape);
+  Widget _buildPhase2(KioskConfig config) {
+    if (config.displayMode == KioskDisplayMode.withComment) {
+      return _buildCommentView(config);
     }
-
-    if (mode == KioskDisplayMode.withTags) {
+    if (config.displayMode == KioskDisplayMode.withTags) {
+      final rating = _selectedRating ?? 3;
       if (rating <= 2) {
-        return _buildTagPhase(config, config.negativeTags, 'What went wrong?',
-            '\u0915\u094D\u092F\u093E \u0917\u0932\u0924 \u0939\u0941\u0906?', isLandscape);
+        return _buildTagsView(
+          config,
+          config.negativeTags,
+          'What could be better?',
+          '\u0915\u094D\u092F\u093E \u092C\u0947\u0939\u0924\u0930 \u0939\u094B \u0938\u0915\u0924\u093E \u0939\u0948?',
+          isNegative: true,
+        );
       }
       if (rating >= 4) {
-        return _buildTagPhase(config, config.positiveTags, 'What did you like?',
-            '\u0906\u092A\u0915\u094B \u0915\u094D\u092F\u093E \u092A\u0938\u0902\u0926 \u0906\u092F\u093E?', isLandscape);
+        return _buildTagsView(
+          config,
+          config.positiveTags,
+          'What did you like?',
+          '\u0906\u092A\u0915\u094B \u0915\u094D\u092F\u093E \u092A\u0938\u0902\u0926 \u0906\u092F\u093E?',
+          isNegative: false,
+        );
       }
-      // Rating 3 = skip tags, submit directly
-      _submitAndThank();
-      return const SizedBox.shrink();
     }
-
-    // Fallback
-    _submitAndThank();
+    // Fallback: submit and show thank you
+    _submitFeedback();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _showThankYou());
     return const SizedBox.shrink();
   }
 
-  Widget _buildCommentPhase(KioskConfig config, bool isLandscape) {
+  Widget _buildCommentView(KioskConfig config) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // Selected emoji
           Text(
-            _ratingEmojis[(_selectedRating ?? 3) - 1]['emoji'] as String,
-            style: const TextStyle(fontSize: 56),
+            _ratingEmojis[(_selectedRating ?? 3) - 1],
+            style: const TextStyle(fontSize: 64),
           ),
           const SizedBox(height: 16),
-          Text(
-            'Tell us more (optional)',
+          const Text(
+            '\uD83C\uDF89 Thank You!',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
             ),
           ),
           if (config.showBilingual) ...[
             const SizedBox(height: 4),
             Text(
-              '\u0914\u0930 \u092C\u0924\u093E\u090F\u0902 (\u0935\u0948\u0915\u0932\u094D\u092A\u093F\u0915)',
+              '\u0927\u0928\u094D\u092F\u0935\u093E\u0926!',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
-                fontSize: 16,
+                color: Colors.white.withOpacity(0.6),
+                fontSize: 20,
               ),
             ),
           ],
-          const SizedBox(height: 24),
-          TextField(
-            controller: _commentController,
-            maxLines: 3,
-            maxLength: 200,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
-            decoration: InputDecoration(
-              hintText: 'Your feedback...',
-              hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-              filled: true,
-              fillColor: Colors.white.withOpacity(0.08),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              counterStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+          const SizedBox(height: 32),
+          Text(
+            'Want to tell us more?',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
+              fontSize: 18,
             ),
-            onTap: () {
-              // Reset auto-reset when user interacts
-              _startAutoReset();
-            },
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+          Container(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: TextField(
+              controller: _commentController,
+              maxLines: 3,
+              maxLength: 300,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+              decoration: InputDecoration(
+                hintText: 'Type your feedback here...',
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.25)),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.08),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                counterStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+              ),
+              onTap: _startAutoReset,
+              onChanged: (_) => _startAutoReset(),
+            ),
+          ),
+          const SizedBox(height: 28),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              TextButton(
-                onPressed: _submitAndThank,
-                child: Text(
-                  'Skip',
-                  style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 16),
+              OutlinedButton(
+                onPressed: _onSkip,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white60,
+                  side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 36, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
+                child:
+                    const Text('SKIP', style: TextStyle(fontSize: 16)),
               ),
-              const SizedBox(width: 24),
-              ElevatedButton(
-                onPressed: _submitAndThank,
-                style: ElevatedButton.styleFrom(
+              const SizedBox(width: 20),
+              FilledButton(
+                onPressed: _onSubmitComment,
+                style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF2563EB),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 36, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
-                child: const Text('Submit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                child: const Text('SUBMIT',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               ),
             ],
           ),
@@ -502,45 +744,49 @@ class _KioskFeedbackScreenState extends ConsumerState<KioskFeedbackScreen>
     );
   }
 
-  Widget _buildTagPhase(
+  Widget _buildTagsView(
     KioskConfig config,
     List<String> tags,
     String titleEn,
-    String titleHi,
-    bool isLandscape,
-  ) {
+    String titleHi, {
+    required bool isNegative,
+  }) {
+    final accentColor =
+        isNegative ? const Color(0xFFEF4444) : const Color(0xFF22C55E);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            _ratingEmojis[(_selectedRating ?? 3) - 1]['emoji'] as String,
+            _ratingEmojis[(_selectedRating ?? 3) - 1],
             style: const TextStyle(fontSize: 48),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Text(
             titleEn,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
             ),
           ),
           if (config.showBilingual) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
               titleHi,
               style: TextStyle(
                 color: Colors.white.withOpacity(0.5),
-                fontSize: 16,
+                fontSize: 18,
               ),
             ),
           ],
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
+          // Tags grid
           Wrap(
-            spacing: 10,
-            runSpacing: 10,
+            spacing: 12,
+            runSpacing: 12,
             alignment: WrapAlignment.center,
             children: tags.map((tag) {
               final info = _tagLabels[tag];
@@ -563,24 +809,25 @@ class _KioskFeedbackScreenState extends ConsumerState<KioskFeedbackScreen>
                 },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 14),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? const Color(0xFF2563EB).withOpacity(0.3)
-                        : Colors.white.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(24),
+                        ? accentColor.withOpacity(0.15)
+                        : Colors.white.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: isSelected
-                          ? const Color(0xFF2563EB)
-                          : Colors.white.withOpacity(0.15),
+                          ? accentColor
+                          : Colors.white.withOpacity(0.12),
                       width: isSelected ? 2 : 1,
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(emoji, style: const TextStyle(fontSize: 18)),
-                      const SizedBox(width: 8),
+                      Text(emoji, style: const TextStyle(fontSize: 20)),
+                      const SizedBox(width: 10),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
@@ -588,17 +835,22 @@ class _KioskFeedbackScreenState extends ConsumerState<KioskFeedbackScreen>
                           Text(
                             labelEn,
                             style: TextStyle(
-                              color: Colors.white.withOpacity(isSelected ? 1.0 : 0.7),
-                              fontSize: 14,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                              color: isSelected
+                                  ? Colors.white
+                                  : Colors.white.withOpacity(0.7),
+                              fontSize: 15,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
                             ),
                           ),
                           if (config.showBilingual && labelHi.isNotEmpty)
                             Text(
                               labelHi,
                               style: TextStyle(
-                                color: Colors.white.withOpacity(isSelected ? 0.7 : 0.4),
-                                fontSize: 11,
+                                color: Colors.white
+                                    .withOpacity(isSelected ? 0.6 : 0.35),
+                                fontSize: 12,
                               ),
                             ),
                         ],
@@ -609,70 +861,89 @@ class _KioskFeedbackScreenState extends ConsumerState<KioskFeedbackScreen>
               );
             }).toList(),
           ),
-          const SizedBox(height: 28),
-          ElevatedButton(
-            onPressed: _submitAndThank,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: Text(
-              _selectedTags.isEmpty ? 'Skip' : 'Submit',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
+          const SizedBox(height: 32),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              OutlinedButton(
+                onPressed: _onSkip,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white60,
+                  side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 40, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child:
+                    const Text('SKIP', style: TextStyle(fontSize: 16)),
+              ),
+              const SizedBox(width: 20),
+              FilledButton(
+                onPressed:
+                    _selectedTags.isNotEmpty ? _onSubmitTags : null,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  disabledBackgroundColor:
+                      const Color(0xFF2563EB).withOpacity(0.3),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 40, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text('DONE',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
+  // ─── Thank You ─────────────────────────────────────────
+
   Widget _buildThankYou(KioskConfig config) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Text('\uD83D\uDE4F', style: TextStyle(fontSize: 72)),
-        const SizedBox(height: 20),
-        Text(
-          'Thank You!',
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.95),
-            fontSize: 32,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        if (config.showBilingual) ...[
-          const SizedBox(height: 6),
+    final isPositive = (_selectedRating ?? 3) >= 4;
+
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
           Text(
-            '\u0927\u0928\u094D\u092F\u0935\u093E\u0926!',
+            isPositive ? '\uD83C\uDF89' : '\uD83D\uDE4F',
+            style: const TextStyle(fontSize: 80),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Thank You!',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
-              fontSize: 24,
+              color: Colors.white,
+              fontSize: 42,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          if (config.showBilingual) ...[
+            const SizedBox(height: 10),
+            Text(
+              '\u0927\u0928\u094D\u092F\u0935\u093E\u0926!',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.6),
+                fontSize: 30,
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          Text(
+            'Your feedback helps us improve',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.4),
+              fontSize: 16,
             ),
           ),
         ],
-        const SizedBox(height: 12),
-        Text(
-          'Your feedback helps us improve',
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.5),
-            fontSize: 16,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFooter(KioskConfig config) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Text(
-        'Powered by ERP System',
-        style: TextStyle(
-          color: Colors.white.withOpacity(0.2),
-          fontSize: 11,
-        ),
       ),
     );
   }

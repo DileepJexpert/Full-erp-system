@@ -66,6 +66,10 @@ import '../features/operator/stock/stock_tab_screen.dart';
 import '../features/kiosk/kiosk_setup_screen.dart';
 import '../features/kiosk/kiosk_feedback_screen.dart';
 
+// Owner feedback dashboard (kiosk analytics)
+import '../features/owner/feedback/feedback_dashboard_screen.dart'
+    as kiosk_feedback;
+
 // Operator screens
 import '../features/operator/home/operator_home_screen.dart';
 import '../features/operator/pos/pos_screen.dart';
@@ -171,7 +175,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/purchases/approvals', builder: (_, __) => const PurchaseApprovalScreen()),
           GoRoute(path: '/settings/aliases', builder: (_, __) => const AliasesScreen()),
           // Kiosk routes
-          GoRoute(path: '/feedback', builder: (_, __) => const FeedbackDashboardScreen()),
+          GoRoute(path: '/feedback', builder: (_, __) => const kiosk_feedback.FeedbackDashboardScreen()),
           GoRoute(path: '/kiosk/setup', builder: (_, __) => const KioskSetupScreen()),
         ],
       ),

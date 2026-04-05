@@ -145,7 +145,7 @@ class AppScaffold extends ConsumerWidget {
       const _SidebarItem(icon: Icons.verified, label: 'Compliance', route: '/compliance'),
       if (features?.enableLoyalty ?? false)
         const _SidebarItem(icon: Icons.card_giftcard, label: 'Loyalty', route: '/loyalty'),
-      const _SidebarItem(icon: Icons.feedback, label: 'Feedback', route: '/feedback'),
+      const _SidebarItem(icon: Icons.rate_review, label: 'Feedback', route: '/feedback'),
       const _SidebarItem(icon: Icons.smart_toy, label: 'AI Advisor', route: '/ai'),
       const _SidebarItem(icon: Icons.auto_fix_high, label: 'Automation', route: '/automation'),
       const _SidebarItem(icon: Icons.account_balance, label: 'Budget', route: '/budget'),
