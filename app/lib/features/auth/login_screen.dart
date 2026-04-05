@@ -118,6 +118,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           )
                         : const Text('Send OTP'),
                   ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () => context.go('/register'),
+                    child: const Text('New here? Register your business'),
+                  ),
                 ],
               ),
             ),

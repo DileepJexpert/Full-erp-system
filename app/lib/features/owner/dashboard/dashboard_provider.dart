@@ -13,6 +13,9 @@ class DashboardData {
   final double cashCollectedToday;
   final double cashShortageToday;
   final double totalLossThisMonth;
+  final int? todayAppointments;
+  final double? totalCreditOutstanding;
+  final int? pendingDeliveries;
 
   DashboardData({
     this.todayRevenue = 0,
@@ -25,6 +28,9 @@ class DashboardData {
     this.cashCollectedToday = 0,
     this.cashShortageToday = 0,
     this.totalLossThisMonth = 0,
+    this.todayAppointments,
+    this.totalCreditOutstanding,
+    this.pendingDeliveries,
   });
 
   factory DashboardData.fromJson(Map<String, dynamic> json) {
@@ -39,6 +45,9 @@ class DashboardData {
       cashCollectedToday: (json['cashCollectedToday'] ?? 0).toDouble(),
       cashShortageToday: (json['cashShortageToday'] ?? 0).toDouble(),
       totalLossThisMonth: (json['totalLossThisMonth'] ?? 0).toDouble(),
+      todayAppointments: json['todayAppointments'] as int?,
+      totalCreditOutstanding: (json['totalCreditOutstanding'] as num?)?.toDouble(),
+      pendingDeliveries: json['pendingDeliveries'] as int?,
     );
   }
 }

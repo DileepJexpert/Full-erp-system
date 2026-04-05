@@ -8,6 +8,7 @@ import '../shared/widgets/operator_scaffold.dart';
 // Auth screens
 import '../features/auth/login_screen.dart';
 import '../features/auth/otp_screen.dart';
+import '../features/auth/register_screen.dart';
 
 // Owner screens
 import '../features/owner/dashboard/dashboard_screen.dart';
@@ -84,6 +85,7 @@ import '../features/owner/feedback/feedback_dashboard_screen.dart'
 // Operator screens
 import '../features/operator/home/operator_home_screen.dart';
 import '../features/operator/pos/pos_screen.dart';
+import '../features/operator/pos/adaptive_pos_screen.dart';
 import '../features/operator/reconcile/reconcile_screen.dart';
 import '../features/operator/salary/my_salary_screen.dart';
 import '../features/operator/leave/leave_request_screen.dart';
@@ -95,7 +97,9 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/login',
     redirect: (context, state) {
       final isLoggedIn = authState.status == AuthStatus.authenticated;
-      final isAuthRoute = state.matchedLocation == '/login' || state.matchedLocation == '/otp';
+      final isAuthRoute = state.matchedLocation == '/login' ||
+          state.matchedLocation == '/otp' ||
+          state.matchedLocation == '/register';
 
       if (!isLoggedIn && !isAuthRoute) return '/login';
       if (isLoggedIn && isAuthRoute) {
@@ -123,6 +127,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         final phone = state.uri.queryParameters['phone'] ?? '';
         return OtpScreen(phone: phone);
       }),
+      GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
 
       // Owner/Manager shell
       ShellRoute(
@@ -208,7 +213,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __, child) => OperatorScaffold(child: child),
         routes: [
           GoRoute(path: '/op/home', builder: (_, __) => const OperatorHomeScreen()),
-          GoRoute(path: '/op/sell', builder: (_, __) => const PosScreen()),
+          GoRoute(path: '/op/sell', builder: (_, __) => const AdaptivePosScreen()),
           GoRoute(path: '/op/stock', builder: (_, __) => const StockTabScreen()),
           GoRoute(path: '/op/reconcile', builder: (_, __) => const ReconcileScreen()),
           GoRoute(path: '/op/salary', builder: (_, __) => const MySalaryScreen()),
