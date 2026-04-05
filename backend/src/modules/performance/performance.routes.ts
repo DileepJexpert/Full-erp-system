@@ -2,9 +2,11 @@ import type { FastifyInstance } from 'fastify';
 import * as performanceService from './performance.service.js';
 import { authenticate } from '../../middleware/authenticate.js';
 import { authorize } from '../../middleware/authorize.js';
+import { requireFeature } from '../../middleware/featureGuard.js';
 
 export async function performanceRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', authenticate);
+  app.addHook('preHandler', requireFeature('enablePerformance'));
 
   app.get('/performance', {
     schema: { tags: ['Performance'], summary: 'Get operator performance scores', security: [{ bearerAuth: [] }] },

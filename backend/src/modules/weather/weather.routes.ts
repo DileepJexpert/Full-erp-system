@@ -1,9 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import * as weatherService from './weather.service.js';
 import { authenticate } from '../../middleware/authenticate.js';
+import { requireFeature } from '../../middleware/featureGuard.js';
 
 export async function weatherRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', authenticate);
+  app.addHook('preHandler', requireFeature('enableWeather'));
 
   app.get('/weather', {
     schema: { tags: ['Weather'], summary: 'Get weather logs', security: [{ bearerAuth: [] }] },

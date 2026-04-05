@@ -3,6 +3,7 @@ import { z } from 'zod';
 import * as creditService from './credit.service.js';
 import { authenticate } from '../../middleware/authenticate.js';
 import { authorize } from '../../middleware/authorize.js';
+import { requireFeature } from '../../middleware/featureGuard.js';
 
 const creditSaleSchema = z.object({
   customerId: z.string().min(1),
@@ -26,6 +27,9 @@ const ledgerFiltersSchema = z.object({
 });
 
 export async function creditRoutes(app: FastifyInstance): Promise<void> {
+  app.addHook('preHandler', authenticate);
+  app.addHook('preHandler', requireFeature('enableCreditLedger'));
+
   app.post('/credit/sale', {
     preHandler: [authenticate, authorize('OWNER', 'MANAGER', 'STAFF')],
     handler: async (request, reply) => {

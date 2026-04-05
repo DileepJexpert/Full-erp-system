@@ -4,6 +4,7 @@ import { signToken } from '../../plugins/auth.js';
 import { DEFAULT_FEATURE_FLAGS } from '../../config/constants.js';
 import { BadRequestError, NotFoundError } from '../../utils/errors.js';
 import type { RegisterBusinessInput, AddUserInput } from './auth.schema.js';
+import { seedBusinessDefaults } from '../../lib/seed-defaults.js';
 
 export async function sendOtp(phone: string) {
   const result = await sendOtpSms(phone);
@@ -102,6 +103,9 @@ export async function registerBusiness(input: RegisterBusinessInput) {
       users: true,
     },
   });
+
+  // Seed default items and terminology for this business type
+  await seedBusinessDefaults(business.id, input.businessType);
 
   const owner = business.users[0];
   const token = signToken({

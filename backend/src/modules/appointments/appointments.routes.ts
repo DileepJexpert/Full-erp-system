@@ -3,6 +3,7 @@ import { z } from 'zod';
 import * as appointmentService from './appointments.service.js';
 import { authenticate } from '../../middleware/authenticate.js';
 import { authorize } from '../../middleware/authorize.js';
+import { requireFeature } from '../../middleware/featureGuard.js';
 
 const createAppointmentSchema = z.object({
   date: z.string(),
@@ -60,6 +61,7 @@ const slotsQuerySchema = z.object({
 
 export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', authenticate);
+  app.addHook('preHandler', requireFeature('enableAppointments'));
 
   // POST /appointments - create
   app.post('/appointments', {

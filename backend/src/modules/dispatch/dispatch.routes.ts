@@ -3,9 +3,11 @@ import { createDispatchSchema, dispatchQuerySchema } from './dispatch.schema.js'
 import * as dispatchService from './dispatch.service.js';
 import { authenticate } from '../../middleware/authenticate.js';
 import { authorize } from '../../middleware/authorize.js';
+import { requireFeature } from '../../middleware/featureGuard.js';
 
 export async function dispatchRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', authenticate);
+  app.addHook('preHandler', requireFeature('enableDispatch'));
 
   app.post('/dispatch', {
     schema: { tags: ['Dispatch'], summary: 'Create a dispatch', security: [{ bearerAuth: [] }] },

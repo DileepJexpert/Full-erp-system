@@ -3,8 +3,12 @@ import { createReconciliationSchema, reconQuerySchema } from './reconciliation.s
 import * as reconciliationService from './reconciliation.service.js';
 import { authenticate } from '../../middleware/authenticate.js';
 import { authorize } from '../../middleware/authorize.js';
+import { requireFeature } from '../../middleware/featureGuard.js';
 
 export async function reconciliationRoutes(app: FastifyInstance): Promise<void> {
+  app.addHook('preHandler', authenticate);
+  app.addHook('preHandler', requireFeature('enableReconciliation'));
+
   app.post('/reconciliation', {
     schema: {
       tags: ['Reconciliation'],

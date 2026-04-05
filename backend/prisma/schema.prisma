@@ -376,6 +376,9 @@ model ItemVariant {
   isActive   Boolean @default(true)
   itemId     String
   item       Item    @relation(fields: [itemId], references: [id])
+  businessId String
+
+  @@index([businessId])
 }
 
 // ═══════════════════════════ SEASONS & TEMPLATES ═════════════
@@ -416,8 +419,10 @@ model MenuTemplateItem {
   template     MenuTemplate @relation(fields: [templateId], references: [id])
   itemId       String
   item         Item         @relation(fields: [itemId], references: [id])
+  businessId   String
 
   @@unique([templateId, itemId])
+  @@index([businessId])
 }
 
 // ═══════════════════════════ DISPATCH ═════════════════════════
@@ -457,8 +462,10 @@ model DispatchItem {
   dispatch    Dispatch @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
   itemId      String
   item        Item     @relation(fields: [itemId], references: [id])
+  businessId  String
 
   @@unique([dispatchId, itemId])
+  @@index([businessId])
 }
 
 // ═══════════════════════════ BILLING ═════════════════════════
@@ -518,6 +525,9 @@ model BillItem {
   bill       Bill   @relation(fields: [billId], references: [id], onDelete: Cascade)
   itemId     String
   item       Item   @relation(fields: [itemId], references: [id])
+  businessId String
+
+  @@index([businessId])
 }
 
 // ═══════════════════════════ RECONCILIATION ═══════════════════
@@ -558,8 +568,10 @@ model ReconItem {
   reconciliation   Reconciliation @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
   itemId           String
   item             Item           @relation(fields: [itemId], references: [id])
+  businessId       String
 
   @@unique([reconciliationId, itemId])
+  @@index([businessId])
 }
 
 // ═══════════════════════════ SALARY ═══════════════════════════
@@ -726,6 +738,9 @@ model PurchaseItem {
   purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
   itemId     String
   item       Item     @relation(fields: [itemId], references: [id])
+  businessId String
+
+  @@index([businessId])
 }
 
 // ═══════════════════════════ CUSTOMERS & LOYALTY ══════════════
@@ -1004,6 +1019,9 @@ model MarketplaceOrderItem {
   orderId     String
   order       MarketplaceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   listingId   String
+  businessId  String
+
+  @@index([businessId])
 }
 
 model SupplierRating {
@@ -1042,6 +1060,9 @@ model DashboardWidget {
   position    Json
   dashboardId String
   dashboard   CustomDashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  businessId  String
+
+  @@index([businessId])
 }
 
 model ScheduledReport {
@@ -1252,6 +1273,9 @@ model StockTransferItem {
   transferId  String
   transfer    StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
   itemId      String
+  businessId  String
+
+  @@index([businessId])
 }
 
 // ═══════════════════════════ V3.1: SMART PURCHASE ENTRY ═════════════
@@ -1362,8 +1386,10 @@ model SalesReturnItem {
   returnId      String
   salesReturn   SalesReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
   itemId        String
+  businessId    String
 
   @@unique([returnId, itemId])
+  @@index([businessId])
 }
 
 // ═══════════════════════════ V4: CUSTOMER CREDIT LEDGER (KHATA) ═════
@@ -1427,8 +1453,10 @@ model RecipeIngredient {
   recipeId      String
   recipe        Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
   ingredientItemId String
+  businessId    String
 
   @@unique([recipeId, ingredientItemId])
+  @@index([businessId])
 }
 
 // ═══════════════════════════ V4: ESTIMATES / QUOTATIONS ═════════════
@@ -1480,8 +1508,10 @@ model EstimateItem {
   estimateId  String
   estimate    Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
   itemId      String?
+  businessId  String
 
   @@unique([estimateId, itemId])
+  @@index([businessId])
 }
 
 // ═══════════════════════════ V4: DISCOUNT ENGINE ════════════════════
@@ -1611,6 +1641,9 @@ model KdsOrderItem {
   orderId     String
   order       KdsOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   itemId      String?
+  businessId  String
+
+  @@index([businessId])
 }
 
 // ═══════════════════════════ V4: DELIVERY PROOF ═════════════════════

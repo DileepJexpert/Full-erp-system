@@ -2,9 +2,11 @@ import type { FastifyInstance } from 'fastify';
 import { customerQuerySchema, createCustomerSchema } from './loyalty.schema.js';
 import * as loyaltyService from './loyalty.service.js';
 import { authenticate } from '../../middleware/authenticate.js';
+import { requireFeature } from '../../middleware/featureGuard.js';
 
 export async function loyaltyRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', authenticate);
+  app.addHook('preHandler', requireFeature('enableLoyalty'));
 
   app.get('/customers', {
     schema: { tags: ['Loyalty'], summary: 'List customers', security: [{ bearerAuth: [] }] },

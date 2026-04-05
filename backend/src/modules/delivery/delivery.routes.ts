@@ -3,6 +3,7 @@ import { z } from 'zod';
 import * as deliveryService from './delivery.service.js';
 import { authenticate } from '../../middleware/authenticate.js';
 import { authorize } from '../../middleware/authorize.js';
+import { requireFeature } from '../../middleware/featureGuard.js';
 
 const recordProofSchema = z.object({
   photoUrl: z.string().optional(),
@@ -25,6 +26,7 @@ const proofQuerySchema = z.object({
 
 export async function deliveryRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', authenticate);
+  app.addHook('preHandler', requireFeature('enableDelivery'));
 
   // POST /delivery/proof - record proof
   app.post('/delivery/proof', {

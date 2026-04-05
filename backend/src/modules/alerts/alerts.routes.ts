@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import * as alertsService from './alerts.service.js';
 import { authenticate } from '../../middleware/authenticate.js';
 import { authorize } from '../../middleware/authorize.js';
+import { requireFeature } from '../../middleware/featureGuard.js';
 import { z } from 'zod';
 
 const alertQuerySchema = z.object({
@@ -15,6 +16,7 @@ const alertQuerySchema = z.object({
 
 export async function alertRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', authenticate);
+  app.addHook('preHandler', requireFeature('enableAnomaly'));
 
   app.get('/alerts', {
     schema: { tags: ['Alerts'], summary: 'List alerts', security: [{ bearerAuth: [] }] },
