@@ -53,6 +53,17 @@ import { supplierRoutes as marketplaceSellerRoutes } from './modules/marketplace
 // V3.1: Smart Purchase Entry
 import { smartPurchaseRoutes } from './modules/purchases/smart-purchase.routes.js';
 
+// V4: New feature modules
+import { returnsRoutes } from './modules/returns/returns.routes.js';
+import { creditRoutes } from './modules/credit/credit.routes.js';
+import { recipesRoutes } from './modules/recipes/recipes.routes.js';
+import { estimatesRoutes } from './modules/estimates/estimates.routes.js';
+import { discountsRoutes } from './modules/discounts/discounts.routes.js';
+import { appointmentRoutes } from './modules/appointments/appointments.routes.js';
+import { kdsRoutes } from './modules/kds/kds.routes.js';
+import { deliveryRoutes } from './modules/delivery/delivery.routes.js';
+import { paymentReminderRoutes } from './jobs/payment-reminders.job.js';
+
 export async function buildApp() {
   const app = Fastify({
     logger: {
@@ -155,6 +166,17 @@ export async function buildApp() {
 
     // V3.1: Smart Purchase Entry
     await api.register(smartPurchaseRoutes);
+
+    // V4: New feature modules
+    await api.register(returnsRoutes);
+    await api.register(creditRoutes);
+    await api.register(recipesRoutes);
+    await api.register(estimatesRoutes);
+    await api.register(discountsRoutes);
+    await api.register(appointmentRoutes);
+    await api.register(kdsRoutes);
+    await api.register(deliveryRoutes);
+    await api.register(paymentReminderRoutes);
   }, { prefix: API_PREFIX });
 
   return app;
