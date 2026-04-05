@@ -41,7 +41,7 @@ import { budgetRoutes } from './modules/budgets/budgets.routes.js';
 import { recurringRoutes } from './modules/recurring/recurring.routes.js';
 import { transferRoutes } from './modules/transfers/transfers.routes.js';
 import { automationRoutes } from './modules/automation/automation.routes.js';
-import { feedbackRoutes } from './modules/feedback/feedback.routes.js';
+import { feedbackKioskRoutes } from './modules/feedback/feedback.routes.js';
 import { whatsappRoutes } from './modules/whatsapp/whatsapp.routes.js';
 import { aiRoutes } from './modules/ai/ai.routes.js';
 import { analyticsRoutes } from './modules/analytics/dashboards.routes.js';
@@ -144,7 +144,7 @@ export async function buildApp() {
     await api.register(recurringRoutes);
     await api.register(transferRoutes);
     await api.register(automationRoutes);
-    await api.register(feedbackRoutes);
+    await api.register(feedbackKioskRoutes);
     await api.register(whatsappRoutes);
     await api.register(aiRoutes);
     await api.register(analyticsRoutes);

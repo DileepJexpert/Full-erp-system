@@ -62,6 +62,10 @@ import '../features/owner/purchases/approval_screen.dart';
 import '../features/owner/settings/aliases_screen.dart';
 import '../features/operator/stock/stock_tab_screen.dart';
 
+// Kiosk screens
+import '../features/kiosk/kiosk_setup_screen.dart';
+import '../features/kiosk/kiosk_feedback_screen.dart';
+
 // Operator screens
 import '../features/operator/home/operator_home_screen.dart';
 import '../features/operator/pos/pos_screen.dart';
@@ -150,6 +154,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/marketplace', builder: (_, __) => const MarketplaceBrowseScreen()),
           GoRoute(path: '/marketplace/orders', builder: (_, __) => const MarketplaceOrderScreen()),
           GoRoute(path: '/loyalty/segments', builder: (_, __) => const SegmentsScreen()),
+          // /loyalty/feedback kept as alias for backwards compatibility
           GoRoute(path: '/loyalty/feedback', builder: (_, __) => const FeedbackDashboardScreen()),
           GoRoute(path: '/inventory/transfer', builder: (_, __) => const StockTransferScreen()),
           // Smart purchase system routes
@@ -165,8 +170,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/purchases/templates', builder: (_, __) => const PurchaseTemplatesScreen()),
           GoRoute(path: '/purchases/approvals', builder: (_, __) => const PurchaseApprovalScreen()),
           GoRoute(path: '/settings/aliases', builder: (_, __) => const AliasesScreen()),
+          // Kiosk routes
+          GoRoute(path: '/feedback', builder: (_, __) => const FeedbackDashboardScreen()),
+          GoRoute(path: '/kiosk/setup', builder: (_, __) => const KioskSetupScreen()),
         ],
       ),
+
+      // Kiosk mode (standalone, outside shell routes)
+      GoRoute(path: '/kiosk/feedback', builder: (_, __) => const KioskFeedbackScreen()),
 
       // Operator shell
       ShellRoute(

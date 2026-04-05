@@ -18,6 +18,8 @@ const TENANT_SCOPED_MODELS = new Set([
   'CustomDashboard', 'ScheduledReport', 'AuditLog', 'AutomationRule',
   'LeaveRequest', 'ShiftSchedule', 'Budget', 'RecurringInvoice',
   'CustomerFeedback', 'StockTransfer',
+  // V3.1 + V3.2 additions
+  'PurchaseTemplate', 'KioskDevice',
 ]);
 
 function createPrismaClient(): PrismaClient {

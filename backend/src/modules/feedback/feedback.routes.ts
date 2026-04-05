@@ -3,69 +3,136 @@ import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
 import { authenticate } from '../../middleware/authenticate.js';
 import { authorize } from '../../middleware/authorize.js';
+import { BadRequestError, NotFoundError, UnauthorizedError } from '../../utils/errors.js';
+import {
+  authenticateKiosk,
+  submitFeedback,
+  getFeedbackSummary,
+  getNpsBreakdown,
+  listFeedback,
+  verifyKioskToken,
+} from './feedback.service.js';
+
+// ─── Validation Schemas ─────────────────────────────────────
+
+const kioskAuthSchema = z.object({
+  deviceId: z.string().min(1),
+  deviceName: z.string().min(1),
+  locationPin: z.string().length(4),
+  businessId: z.string().min(1),
+});
 
 const submitFeedbackSchema = z.object({
   rating: z.number().int().min(1).max(5),
   comment: z.string().optional(),
-  locationId: z.string(),
-  customerId: z.string().optional(),
-  channel: z.string().default('WEB'),
+  tags: z.array(z.string()).optional(),
+  billId: z.string().optional(),
+  operatorId: z.string().optional(),
+  batteryLevel: z.number().int().min(0).max(100).optional(),
 });
 
-const feedbackListQuerySchema = z.object({
+const summaryQuerySchema = z.object({
+  locationId: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+});
+
+const listQuerySchema = z.object({
   locationId: z.string().optional(),
   rating: z.coerce.number().int().min(1).max(5).optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
-  offset: z.coerce.number().int().min(0).default(0),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
-const npsSummaryQuerySchema = z.object({
+const npsQuerySchema = z.object({
   locationId: z.string().optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
 });
 
-export async function feedbackRoutes(app: FastifyInstance): Promise<void> {
-  // ── POST /feedback/submit (public - no auth) ──
-  app.post('/feedback/submit', {
+const kioskSettingsSchema = z.object({
+  locationId: z.string().min(1),
+  feedbackKioskEnabled: z.boolean().optional(),
+  feedbackDisplayMode: z.enum(['SIMPLE', 'WITH_COMMENT', 'WITH_TAGS']).optional(),
+  feedbackAutoResetSec: z.number().int().min(3).max(60).optional(),
+  feedbackShowBilingual: z.boolean().optional(),
+  feedbackNegativeTags: z.array(z.string()).optional(),
+  feedbackPositiveTags: z.array(z.string()).optional(),
+});
+
+// ─── Rate Limit Tracker (in-memory, per device) ─────────────
+
+const deviceLastSubmit = new Map<string, number>();
+
+// ─── Routes ─────────────────────────────────────────────────
+
+export async function feedbackKioskRoutes(app: FastifyInstance): Promise<void> {
+  // ── POST /feedback/kiosk-auth (Public) ──
+  app.post('/feedback/kiosk-auth', {
     schema: {
-      tags: ['Feedback'],
-      summary: 'Submit customer feedback (public, no auth required)',
-      body: {
-        type: 'object',
-        properties: {
-          rating: { type: 'integer', minimum: 1, maximum: 5 },
-          comment: { type: 'string' },
-          locationId: { type: 'string' },
-          customerId: { type: 'string' },
-          channel: { type: 'string', default: 'WEB' },
-        },
-        required: ['rating', 'locationId'],
-      },
+      tags: ['Feedback Kiosk'],
+      summary: 'Authenticate kiosk device and get config',
     },
     handler: async (request, reply) => {
-      const body = submitFeedbackSchema.parse(request.body);
+      const body = kioskAuthSchema.parse(request.body);
+      const result = await authenticateKiosk(body);
+      return reply.send(result);
+    },
+  });
 
-      // We need the businessId from the location since this is unauthenticated
-      const location = await prisma.location.findUnique({
-        where: { id: body.locationId },
-        select: { businessId: true },
-      });
-
-      if (!location) {
-        return reply.code(404).send({ error: 'Location not found' });
+  // ── POST /feedback/submit (Kiosk token auth) ──
+  app.post('/feedback/submit', {
+    schema: {
+      tags: ['Feedback Kiosk'],
+      summary: 'Submit feedback from kiosk device',
+    },
+    handler: async (request, reply) => {
+      // Parse kiosk token from Authorization header
+      const authHeader = request.headers.authorization;
+      if (!authHeader?.startsWith('Bearer ')) {
+        throw new UnauthorizedError('Missing or invalid Authorization header');
       }
 
-      const feedback = await prisma.customerFeedback.create({
+      const token = authHeader.slice(7);
+      const kioskPayload = verifyKioskToken(token);
+
+      // Rate limit: 1 submission per 10 seconds per device
+      const now = Date.now();
+      const lastSubmit = deviceLastSubmit.get(kioskPayload.deviceId);
+      if (lastSubmit && now - lastSubmit < 10_000) {
+        return reply.code(429).send({
+          error: 'Too many requests',
+          code: 'RATE_LIMITED',
+          details: { retryAfter: '10s' },
+        });
+      }
+      deviceLastSubmit.set(kioskPayload.deviceId, now);
+
+      const body = submitFeedbackSchema.parse(request.body);
+
+      const feedback = await submitFeedback({
+        rating: body.rating,
+        comment: body.comment,
+        tags: body.tags,
+        locationId: kioskPayload.locationId,
+        businessId: kioskPayload.businessId,
+        billId: body.billId,
+        operatorId: body.operatorId,
+        deviceId: kioskPayload.deviceId,
+        channel: 'kiosk_display',
+      });
+
+      // Update KioskDevice lastSeenAt + batteryLevel
+      await prisma.kioskDevice.updateMany({
+        where: {
+          deviceId: kioskPayload.deviceId,
+          businessId: kioskPayload.businessId,
+        },
         data: {
-          rating: body.rating,
-          comment: body.comment ?? null,
-          channel: body.channel,
-          locationId: body.locationId,
-          customerId: body.customerId ?? null,
-          businessId: location.businessId,
+          lastSeenAt: new Date(),
+          ...(body.batteryLevel !== undefined ? { batteryLevel: body.batteryLevel } : {}),
         },
       });
 
@@ -73,121 +140,140 @@ export async function feedbackRoutes(app: FastifyInstance): Promise<void> {
     },
   });
 
-  // ── GET /feedback/list ──
-  app.get('/feedback/list', {
+  // ── GET /feedback/summary (Manager+) ──
+  app.get('/feedback/summary', {
     schema: {
-      tags: ['Feedback'],
-      summary: 'List customer feedback (Owner only)',
+      tags: ['Feedback Kiosk'],
+      summary: 'Get feedback summary for business/location',
       security: [{ bearerAuth: [] }],
-      querystring: {
-        type: 'object',
-        properties: {
-          locationId: { type: 'string' },
-          rating: { type: 'integer', minimum: 1, maximum: 5 },
-          startDate: { type: 'string' },
-          endDate: { type: 'string' },
-          limit: { type: 'integer', minimum: 1, maximum: 100, default: 50 },
-          offset: { type: 'integer', minimum: 0, default: 0 },
-        },
-      },
     },
-    preHandler: [authenticate, authorize('OWNER')],
+    preHandler: [authenticate, authorize('OWNER', 'MANAGER')],
     handler: async (request, reply) => {
       const { businessId } = request.tenant;
-      const query = feedbackListQuerySchema.parse(request.query);
+      const query = summaryQuerySchema.parse(request.query);
 
-      const where: Record<string, unknown> = { businessId };
-      if (query.locationId) where.locationId = query.locationId;
-      if (query.rating) where.rating = query.rating;
+      const result = await getFeedbackSummary(
+        businessId,
+        query.locationId,
+        query.startDate ? new Date(query.startDate) : undefined,
+        query.endDate ? new Date(query.endDate) : undefined,
+      );
 
-      if (query.startDate || query.endDate) {
-        const dateFilter: Record<string, Date> = {};
-        if (query.startDate) dateFilter.gte = new Date(query.startDate);
-        if (query.endDate) dateFilter.lte = new Date(query.endDate);
-        where.createdAt = dateFilter;
-      }
-
-      const [data, total] = await Promise.all([
-        prisma.customerFeedback.findMany({
-          where,
-          orderBy: { createdAt: 'desc' },
-          take: query.limit,
-          skip: query.offset,
-        }),
-        prisma.customerFeedback.count({ where }),
-      ]);
-
-      return reply.send({ data, total });
+      return reply.send(result);
     },
   });
 
-  // ── GET /feedback/nps-summary ──
-  app.get('/feedback/nps-summary', {
+  // ── GET /feedback/list (Manager+) ──
+  app.get('/feedback/list', {
     schema: {
-      tags: ['Feedback'],
-      summary: 'NPS score calculation per location',
+      tags: ['Feedback Kiosk'],
+      summary: 'List feedback with pagination',
       security: [{ bearerAuth: [] }],
-      querystring: {
-        type: 'object',
-        properties: {
-          locationId: { type: 'string' },
-          startDate: { type: 'string' },
-          endDate: { type: 'string' },
-        },
-      },
+    },
+    preHandler: [authenticate, authorize('OWNER', 'MANAGER')],
+    handler: async (request, reply) => {
+      const { businessId } = request.tenant;
+      const query = listQuerySchema.parse(request.query);
+
+      const result = await listFeedback(businessId, query);
+
+      return reply.send(result);
+    },
+  });
+
+  // ── GET /feedback/nps (Owner) ──
+  app.get('/feedback/nps', {
+    schema: {
+      tags: ['Feedback Kiosk'],
+      summary: 'Get NPS breakdown',
+      security: [{ bearerAuth: [] }],
     },
     preHandler: [authenticate, authorize('OWNER')],
     handler: async (request, reply) => {
       const { businessId } = request.tenant;
-      const query = npsSummaryQuerySchema.parse(request.query);
+      const query = npsQuerySchema.parse(request.query);
 
-      const where: Record<string, unknown> = { businessId };
-      if (query.locationId) where.locationId = query.locationId;
+      const result = await getNpsBreakdown(
+        businessId,
+        query.locationId,
+        query.startDate ? new Date(query.startDate) : undefined,
+        query.endDate ? new Date(query.endDate) : undefined,
+      );
 
-      if (query.startDate || query.endDate) {
-        const dateFilter: Record<string, Date> = {};
-        if (query.startDate) dateFilter.gte = new Date(query.startDate);
-        if (query.endDate) dateFilter.lte = new Date(query.endDate);
-        where.createdAt = dateFilter;
-      }
+      return reply.send(result);
+    },
+  });
 
-      const allFeedback = await prisma.customerFeedback.findMany({
-        where,
-        select: { locationId: true, rating: true },
+  // ── PUT /feedback/kiosk-settings (Owner) ──
+  app.put('/feedback/kiosk-settings', {
+    schema: {
+      tags: ['Feedback Kiosk'],
+      summary: 'Update kiosk display settings for a location',
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: [authenticate, authorize('OWNER')],
+    handler: async (request, reply) => {
+      const { businessId } = request.tenant;
+      const body = kioskSettingsSchema.parse(request.body);
+
+      // Verify location belongs to this business
+      const location = await prisma.location.findFirst({
+        where: { id: body.locationId, businessId },
       });
 
-      // Group by location
-      const byLocation = new Map<string, number[]>();
-      for (const fb of allFeedback) {
-        const ratings = byLocation.get(fb.locationId) ?? [];
-        ratings.push(fb.rating);
-        byLocation.set(fb.locationId, ratings);
+      if (!location) {
+        throw new NotFoundError('Location', body.locationId);
       }
 
-      const summary = Array.from(byLocation.entries()).map(([locationId, ratings]) => {
-        const total = ratings.length;
-        const promoters = ratings.filter(r => r >= 4).length;   // 4-5
-        const detractors = ratings.filter(r => r <= 2).length;   // 1-2
-        const passives = total - promoters - detractors;          // 3
+      const { locationId, ...updateData } = body;
 
-        const nps = total > 0
-          ? Math.round(((promoters - detractors) / total) * 100)
-          : 0;
-
-        return {
-          locationId,
-          totalResponses: total,
-          promoters,
-          passives,
-          detractors,
-          nps,
-          averageRating: total > 0
-            ? Math.round((ratings.reduce((a, b) => a + b, 0) / total) * 100) / 100
-            : 0,
-        };
+      const updated = await prisma.location.update({
+        where: { id: locationId },
+        data: updateData,
+        select: {
+          id: true,
+          name: true,
+          feedbackKioskEnabled: true,
+          feedbackDisplayMode: true,
+          feedbackAutoResetSec: true,
+          feedbackShowBilingual: true,
+          feedbackNegativeTags: true,
+          feedbackPositiveTags: true,
+        },
       });
 
-      return reply.send({ data: summary });
+      return reply.send(updated);
+    },
+  });
+
+  // ── GET /feedback/realtime/:locationId (Manager+) ──
+  app.get('/feedback/realtime/:locationId', {
+    schema: {
+      tags: ['Feedback Kiosk'],
+      summary: 'Get last 20 feedback entries for a location (polling)',
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: [authenticate, authorize('OWNER', 'MANAGER')],
+    handler: async (request, reply) => {
+      const { businessId } = request.tenant;
+      const { locationId } = request.params as { locationId: string };
+
+      // Verify location belongs to this business
+      const location = await prisma.location.findFirst({
+        where: { id: locationId, businessId },
+      });
+
+      if (!location) {
+        throw new NotFoundError('Location', locationId);
+      }
+
+      const feedback = await prisma.customerFeedback.findMany({
+        where: { businessId, locationId },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      });
+
+      return reply.send({ data: feedback, pollIntervalMs: 10_000 });
     },
   });
 }

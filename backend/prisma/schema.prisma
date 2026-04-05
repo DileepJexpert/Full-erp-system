@@ -294,6 +294,13 @@ model Location {
   receiptFooter     String?
   fssaiNumber       String?
   dailyExpenseLimit Float?
+  // Feedback Kiosk Settings
+  feedbackKioskEnabled  Boolean  @default(false)
+  feedbackDisplayMode   String   @default("SIMPLE")
+  feedbackAutoResetSec  Int      @default(8)
+  feedbackShowBilingual Boolean  @default(true)
+  feedbackNegativeTags  String[] @default(["slow_service", "bad_quality", "rude_staff", "wrong_order", "not_clean", "overpriced"])
+  feedbackPositiveTags  String[] @default(["tasty_food", "fast_service", "friendly_staff", "clean_place", "good_value", "will_recommend"])
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -1186,17 +1193,24 @@ model RecurringInvoice {
 // ═══════════════════════════ V3: CUSTOMER FEEDBACK ════════════════
 
 model CustomerFeedback {
-  id          String   @id @default(cuid())
-  rating      Int
-  comment     String?
-  channel     String
-  customerId  String?
-  locationId  String
-  businessId  String
-  createdAt   DateTime @default(now())
+  id            String   @id @default(cuid())
+  rating        Int
+  comment       String?
+  tags          String[] @default([])
+  channel       String
+  entryDevice   String?
+  billId        String?
+  customerId    String?
+  customerPhone String?
+  locationId    String
+  operatorId    String?
+  businessId    String
+  createdAt     DateTime @default(now())
 
   @@index([businessId])
-  @@index([locationId])
+  @@index([businessId, locationId])
+  @@index([businessId, locationId, createdAt])
+  @@index([rating])
 }
 
 // ═══════════════════════════ V3: STOCK TRANSFER ══════════════════
@@ -1256,4 +1270,23 @@ model ItemAliasGlobal {
 
   @@unique([alias, category])
   @@index([alias])
+}
+
+// ═══════════════════════════ V3.2: FEEDBACK KIOSK ═══════════════════
+
+model KioskDevice {
+  id           String   @id @default(cuid())
+  deviceName   String
+  deviceId     String
+  locationId   String
+  locationPin  String
+  isActive     Boolean  @default(true)
+  lastSeenAt   DateTime @default(now())
+  batteryLevel Int?
+  businessId   String
+  createdAt    DateTime @default(now())
+
+  @@unique([deviceId, businessId])
+  @@index([businessId])
+  @@index([locationId])
 }

@@ -12,8 +12,8 @@ final feedbackDashboardProvider =
   return response.data as Map<String, dynamic>;
 });
 
-class FeedbackScreen extends ConsumerWidget {
-  const FeedbackScreen({super.key});
+class FeedbackDashboardScreen extends ConsumerWidget {
+  const FeedbackDashboardScreen({super.key});
 
   Color _npsColor(double nps) {
     if (nps >= 50) return const Color(0xFF16A34A);
