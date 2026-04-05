@@ -1,0 +1,252 @@
+================================================================
+  LOCAL DEVELOPMENT SETUP — Windows / Mac / Linux
+  Multi-Vertical Business Operations Platform
+================================================================
+
+PREREQUISITES
+─────────────
+1. Node.js 20+          → https://nodejs.org
+2. PostgreSQL 15+       → https://www.postgresql.org/download/
+3. Redis 7+             → Windows: https://github.com/tporadowski/redis/releases
+                          Mac: brew install redis
+                          Linux: sudo apt install redis-server
+4. Git                  → https://git-scm.com
+5. Flutter SDK 3.2+     → https://docs.flutter.dev/get-started/install
+6. Android Studio       → https://developer.android.com/studio (for mobile emulator)
+7. VS Code (recommended)→ https://code.visualstudio.com
+
+================================================================
+STEP 1: CLONE THE REPOSITORY
+================================================================
+
+git clone https://github.com/DileepJexpert/Full-erp-system.git
+cd Full-erp-system
+
+================================================================
+STEP 2: SETUP POSTGRESQL DATABASE
+================================================================
+
+-- Open pgAdmin or psql terminal and run:
+
+CREATE DATABASE erp_platform;
+CREATE USER erp_user WITH PASSWORD 'your_secure_password';
+GRANT ALL PRIVILEGES ON DATABASE erp_platform TO erp_user;
+
+-- On PostgreSQL 15+, also run:
+\c erp_platform
+GRANT ALL ON SCHEMA public TO erp_user;
+
+================================================================
+STEP 3: SETUP BACKEND SERVER
+================================================================
+
+cd backend
+
+-- 3a. Install dependencies
+npm install
+
+-- 3b. Create .env file (copy from example)
+-- Windows (CMD):
+copy .env.example .env
+-- Mac/Linux:
+cp .env.example .env
+
+-- 3c. Edit .env with your actual values:
+-- ─────────────────────────────────────────────────
+-- REQUIRED (must change):
+DATABASE_URL=postgresql://erp_user:your_secure_password@localhost:5432/erp_platform
+JWT_SECRET=generate-a-random-64-character-string-here-use-openssl-rand-hex-32
+
+-- OPTIONAL (defaults work for local dev):
+MOCK_OTP_ENABLED=true          ← Skip real SMS in development
+PORT=3000
+NODE_ENV=development
+REDIS_URL=redis://localhost:6379
+
+-- AI Features (optional — get free key from https://console.anthropic.com):
+ANTHROPIC_API_KEY=sk-ant-...   ← Required only for AI bill scanning
+CLAUDE_MODEL_FAST=claude-haiku-4-5-20251001
+CLAUDE_MODEL_SMART=claude-sonnet-4-6
+
+-- Other services (optional — use defaults for local dev):
+R2_ACCESS_KEY=mock-key
+R2_SECRET_KEY=mock-secret
+RAZORPAY_KEY_ID=mock-key
+RAZORPAY_KEY_SECRET=mock-secret
+GUPSHUP_API_KEY=mock-key       ← WhatsApp bot (needs real key for production)
+-- ─────────────────────────────────────────────────
+
+-- 3d. Generate Prisma client
+npm run db:generate
+
+-- 3e. Run database migrations (creates all tables)
+npm run db:migrate
+
+-- 3f. Seed Hindi item aliases (for bill scanning)
+npx tsx prisma/seeds/item-aliases.ts
+
+-- 3g. Start the backend server
+npm run dev
+
+-- You should see:
+-- Server listening at http://localhost:3000
+-- Swagger docs at http://localhost:3000/docs
+
+================================================================
+STEP 4: VERIFY BACKEND IS RUNNING
+================================================================
+
+-- Open browser or use curl:
+-- Windows (PowerShell):
+Invoke-WebRequest http://localhost:3000/health
+
+-- Mac/Linux:
+curl http://localhost:3000/health
+
+-- Expected: {"status":"ok"}
+
+-- API Documentation (Swagger UI):
+-- Open http://localhost:3000/docs in your browser
+
+================================================================
+STEP 5: RUN TESTS
+================================================================
+
+cd backend
+npm test
+
+-- Expected: 120 tests passing (7 test files)
+-- Tests run WITHOUT needing a database connection
+
+================================================================
+STEP 6: COMMON COMMANDS
+================================================================
+
+-- Development (auto-reload on file changes):
+npm run dev
+
+-- Build for production:
+npm run build
+npm start
+
+-- Run specific test file:
+npx vitest run tests/unit/smart-purchase.test.ts
+
+-- Reset database (WARNING: deletes all data):
+npx prisma migrate reset
+
+-- View database in browser:
+npx prisma studio
+-- Opens at http://localhost:5555
+
+-- Generate Prisma client after schema changes:
+npm run db:generate
+
+================================================================
+STEP 7: ENVIRONMENT-SPECIFIC NOTES
+================================================================
+
+WINDOWS:
+  - Use PowerShell or Git Bash (not CMD) for better compatibility
+  - If PostgreSQL is on a different port, update DATABASE_URL accordingly
+  - Redis: download from https://github.com/tporadowski/redis/releases
+    or use Docker: docker run -d -p 6379:6379 redis:alpine
+
+MAC:
+  - brew install postgresql@15 redis
+  - brew services start postgresql@15
+  - brew services start redis
+
+LINUX (Ubuntu/Debian):
+  - sudo apt install postgresql redis-server nodejs npm
+  - sudo systemctl start postgresql redis
+
+DOCKER (alternative — runs everything):
+  - docker compose up -d  (if docker-compose.yml is added later)
+
+================================================================
+STEP 8: PROJECT STRUCTURE
+================================================================
+
+Full-erp-system/
+├── backend/                    ← Fastify + TypeScript + Prisma
+│   ├── prisma/
+│   │   ├── schema.prisma       ← Database schema (40+ models)
+│   │   └── seeds/              ← Seed data (Hindi aliases)
+│   ├── src/
+│   │   ├── app.ts              ← Fastify app + route registration
+│   │   ├── server.ts           ← Entry point (starts server)
+│   │   ├── config/             ← Environment config
+│   │   ├── middleware/         ← Auth, tenant isolation
+│   │   ├── modules/            ← Feature modules (23+ modules)
+│   │   │   ├── purchases/      ← Smart purchase system (V3.1)
+│   │   │   ├── whatsapp/       ← WhatsApp bot
+│   │   │   ├── ai/             ← AI advisor
+│   │   │   └── ...
+│   │   ├── jobs/               ← Background jobs (cron)
+│   │   └── lib/                ← Shared clients (Prisma, Claude, R2)
+│   └── tests/                  ← Unit tests (120 tests)
+│
+├── app/                        ← Flutter mobile + web app
+│   ├── lib/
+│   │   ├── main.dart           ← Entry point
+│   │   ├── config/             ← Routes, theme, constants
+│   │   ├── core/               ← Auth, API, database, sync
+│   │   ├── features/           ← Feature screens
+│   │   │   ├── purchases/      ← Smart purchase screens (V3.1)
+│   │   │   ├── operator/       ← Operator app (POS, stock, recon)
+│   │   │   └── owner/          ← Owner dashboard + management
+│   │   └── shared/             ← Reusable widgets
+│   └── pubspec.yaml
+│
+└── SETUP_LOCAL.txt             ← This file
+
+================================================================
+TROUBLESHOOTING
+================================================================
+
+ERROR: "Cannot find module '@prisma/client'"
+  → Run: npm run db:generate
+
+ERROR: "Connection refused" on database
+  → Check PostgreSQL is running: pg_isready
+  → Verify DATABASE_URL in .env
+
+ERROR: "ECONNREFUSED 127.0.0.1:6379" (Redis)
+  → Redis is optional for local dev. Start it or ignore the warning.
+  → Jobs/queues won't work without Redis but the API will.
+
+ERROR: "Port 3000 already in use"
+  → Change PORT=3001 in .env
+  → Or kill the process: npx kill-port 3000
+
+ERROR: Tests failing
+  → Tests don't need database. Run: npm test
+  → If still failing: rm -rf node_modules && npm install
+
+================================================================
+API ENDPOINTS OVERVIEW (120+ endpoints)
+================================================================
+
+Auth:          POST /api/v1/auth/send-otp, /verify-otp
+Locations:     CRUD /api/v1/locations
+Staff:         CRUD /api/v1/users
+Items:         CRUD /api/v1/items
+Dispatch:      CRUD /api/v1/dispatch
+Billing:       CRUD /api/v1/bills
+Reconcile:     CRUD /api/v1/reconciliation
+Purchases:     CRUD /api/v1/purchases
+Smart Purchase: POST /api/v1/purchases/scan-bill      ← AI bill scan
+                POST /api/v1/purchases/parse-text      ← Text bill parse
+                POST /api/v1/purchases/parse-voice     ← Voice parse
+                POST /api/v1/purchases/repeat-last     ← Repeat order
+                POST /api/v1/purchases/batch-save      ← Batch save
+                GET  /api/v1/purchases/lookup-barcode   ← Barcode lookup
+                PUT  /api/v1/purchases/:id/approve     ← Approve
+                PUT  /api/v1/purchases/:id/reject      ← Reject
+WhatsApp:      POST /api/v1/whatsapp/webhook
+AI Advisor:    POST /api/v1/ai/query
+Analytics:     GET  /api/v1/analytics/rfm/segments
+Marketplace:   GET  /api/v1/marketplace/search
+
+Full docs: http://localhost:3000/docs (Swagger UI)

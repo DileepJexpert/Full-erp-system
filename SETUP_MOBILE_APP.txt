@@ -1,0 +1,415 @@
+================================================================
+  FLUTTER MOBILE APP SETUP — Android & iOS
+  Multi-Vertical Business Operations Platform
+================================================================
+
+PREREQUISITES
+─────────────
+1. Flutter SDK 3.2+    → https://docs.flutter.dev/get-started/install
+2. Dart SDK            → Bundled with Flutter
+3. Android Studio      → https://developer.android.com/studio
+4. Xcode 15+ (Mac)     → For iOS builds (Mac only)
+5. VS Code + Flutter extension (recommended)
+6. Backend server running (see SETUP_LOCAL.txt)
+
+================================================================
+STEP 1: INSTALL FLUTTER
+================================================================
+
+WINDOWS:
+  1. Download Flutter SDK from https://docs.flutter.dev/get-started/install/windows
+  2. Extract to C:\flutter
+  3. Add C:\flutter\bin to PATH (System Environment Variables)
+  4. Open new terminal and verify:
+     flutter doctor
+
+MAC:
+  brew install flutter
+  -- OR download from https://docs.flutter.dev/get-started/install/macos
+  flutter doctor
+
+LINUX:
+  sudo snap install flutter --classic
+  flutter doctor
+
+-- Fix any issues shown by 'flutter doctor' before proceeding
+
+================================================================
+STEP 2: SETUP ANDROID (for Android phones/emulator)
+================================================================
+
+1. Install Android Studio
+2. Open Android Studio → Settings → SDK Manager
+3. Install:
+   - Android SDK (API 34 or latest)
+   - Android SDK Command-line Tools
+   - Android SDK Build-Tools
+   - Android Emulator
+
+4. Create an emulator:
+   - Android Studio → Virtual Device Manager
+   - Create Device → Pixel 7 → API 34 → Finish
+   - Start the emulator
+
+5. Accept licenses:
+   flutter doctor --android-licenses
+
+6. Verify:
+   flutter doctor
+   -- Should show: [✓] Android toolchain
+
+================================================================
+STEP 3: SETUP iOS (Mac only — for iPhones/iPad)
+================================================================
+
+1. Install Xcode from Mac App Store
+2. Open Xcode → accept license agreement
+3. Install command line tools:
+   sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+   sudo xcodebuild -runFirstLaunch
+
+4. Install CocoaPods:
+   sudo gem install cocoapods
+
+5. Open iOS Simulator:
+   open -a Simulator
+
+6. Verify:
+   flutter doctor
+   -- Should show: [✓] Xcode
+
+================================================================
+STEP 4: CONFIGURE THE FLUTTER APP
+================================================================
+
+cd Full-erp-system/app
+
+-- 4a. Install Flutter dependencies
+flutter pub get
+
+-- 4b. Configure API base URL
+-- Edit: lib/core/api/api_client.dart
+-- Change the base URL to point to your backend:
+
+-- For Android Emulator → use 10.0.2.2 (NOT localhost):
+   static const baseUrl = 'http://10.0.2.2:3000';
+
+-- For iOS Simulator → use localhost:
+   static const baseUrl = 'http://localhost:3000';
+
+-- For Physical Device → use your computer's local IP:
+   static const baseUrl = 'http://192.168.1.XXX:3000';
+   -- Find your IP: ipconfig (Windows) / ifconfig (Mac/Linux)
+
+-- For Web (Chrome) → use localhost:
+   static const baseUrl = 'http://localhost:3000';
+
+================================================================
+STEP 5: RUN ON ANDROID EMULATOR
+================================================================
+
+-- Make sure backend is running (npm run dev in backend/)
+-- Make sure Android emulator is started
+
+cd Full-erp-system/app
+
+-- List available devices:
+flutter devices
+
+-- Run on Android emulator:
+flutter run
+
+-- OR specify device:
+flutter run -d emulator-5554
+
+-- Hot reload: press 'r' in terminal
+-- Hot restart: press 'R' in terminal
+-- Quit: press 'q'
+
+================================================================
+STEP 6: RUN ON iOS SIMULATOR (Mac only)
+================================================================
+
+cd Full-erp-system/app
+
+-- Install iOS dependencies:
+cd ios && pod install && cd ..
+
+-- Run on iOS Simulator:
+flutter run -d "iPhone 15 Pro"
+
+-- OR just:
+flutter run   (picks available simulator)
+
+================================================================
+STEP 7: RUN ON PHYSICAL ANDROID PHONE
+================================================================
+
+1. Enable Developer Options on your phone:
+   Settings → About Phone → Tap "Build Number" 7 times
+
+2. Enable USB Debugging:
+   Settings → Developer Options → USB Debugging → ON
+
+3. Connect phone via USB cable
+
+4. Trust the computer when prompted on phone
+
+5. Verify phone is detected:
+   flutter devices
+   -- Should show your phone model
+
+6. IMPORTANT: Update API base URL to your computer's IP:
+   -- Edit lib/core/api/api_client.dart
+   -- Change to: http://192.168.1.XXX:3000
+   -- (Your computer and phone must be on same WiFi network)
+
+7. Run:
+   flutter run -d <device-id>
+
+================================================================
+STEP 8: RUN ON PHYSICAL iPHONE (Mac only)
+================================================================
+
+1. Connect iPhone via USB cable
+2. Trust the computer on iPhone
+
+3. Open Xcode:
+   open ios/Runner.xcworkspace
+
+4. In Xcode:
+   - Select your iPhone as target device
+   - Set Team (Signing & Capabilities):
+     Runner → Signing & Capabilities → Team → Select your Apple ID
+   - Change Bundle ID to something unique:
+     e.g., com.yourname.businessmanager
+
+5. Run from terminal:
+   flutter run -d <iphone-device-id>
+
+   -- OR run from Xcode directly (Product → Run)
+
+================================================================
+STEP 9: RUN AS WEB APP (Owner Dashboard)
+================================================================
+
+cd Full-erp-system/app
+
+-- Run in Chrome:
+flutter run -d chrome
+
+-- This opens the Owner Web Dashboard in your browser
+-- Best for: Owner dashboard, reports, analytics
+-- The web version is responsive but optimized for desktop
+
+================================================================
+STEP 10: BUILD RELEASE APK (Android)
+================================================================
+
+cd Full-erp-system/app
+
+-- Before building, update API URL to production server:
+-- Edit lib/core/api/api_client.dart
+-- Change baseUrl to your production server URL
+
+-- Build release APK:
+flutter build apk --release
+
+-- Output: build/app/outputs/flutter-apk/app-release.apk
+-- Size: ~15-25 MB
+
+-- Install on connected phone:
+flutter install
+
+-- Build App Bundle (for Play Store):
+flutter build appbundle --release
+-- Output: build/app/outputs/bundle/release/app-release.aab
+
+================================================================
+STEP 11: BUILD iOS APP (Mac only)
+================================================================
+
+cd Full-erp-system/app
+
+-- Build iOS release:
+flutter build ios --release
+
+-- Open in Xcode to archive and submit to App Store:
+open ios/Runner.xcworkspace
+-- Product → Archive → Distribute App
+
+================================================================
+APP STRUCTURE — TWO APPS IN ONE CODEBASE
+================================================================
+
+The Flutter app contains TWO user interfaces:
+
+1. OWNER WEB DASHBOARD (accessed via /dashboard)
+   ─────────────────────────────────────────────
+   - Sidebar navigation with 20+ sections
+   - Dashboard with revenue charts, alerts
+   - Inventory, dispatch, billing management
+   - Staff management (salary, attendance, leave, shifts)
+   - AI Advisor chat, insights
+   - Smart Purchase: batch scan, approvals
+   - Analytics, reports, marketplace
+   - Settings, audit logs
+   - Best on: Web browser, tablet
+
+2. OPERATOR MOBILE APP (accessed via /op/home)
+   ─────────────────────────────────────────────
+   - Bottom navigation with 5 tabs:
+     Home | Sell | Stock | Reconcile | Salary
+   - POS billing (point of sale)
+   - Stock received (scan bill, voice entry, repeat)
+   - Daily reconciliation
+   - Salary view, leave requests
+   - Best on: Mobile phone
+
+   ROUTING:
+   - Staff/Operator users → auto-routed to /op/home
+   - Owner/Manager users  → auto-routed to /dashboard
+
+================================================================
+OPERATOR WORKFLOW (daily usage)
+================================================================
+
+Morning:
+  1. Open app → auto-login
+  2. Home tab: see today's dispatch, pending tasks
+  3. Stock tab → "Received Stock" → Scan Bill photo
+     → AI reads bill → Review items → Save (30 seconds!)
+
+During day:
+  4. Sell tab: Create bills (POS)
+  5. Cash collection
+
+Evening:
+  6. Reconcile tab: Enter sold/returned/wasted counts
+  7. Done!
+
+================================================================
+SMART PURCHASE ENTRY (the killer feature)
+================================================================
+
+Method 1 — SCAN BILL (Photo):
+  Stock tab → Received Stock → Scan Bill → Take photo
+  → AI reads Hindi/English bill → Review → Save
+
+Method 2 — VOICE ENTRY:
+  Stock tab → Received Stock → Voice Entry
+  → Speak: "Sharma se 20 kilo pyaaz 40 rupay"
+  → AI parses → Review → Save
+
+Method 3 — REPEAT LAST:
+  Stock tab → Received Stock → Repeat Last
+  → Select supplier → Adjust quantities → Save
+
+Method 4 — BARCODE:
+  Stock tab → Received Stock → Scan Barcode
+  → Scan items one by one → Set quantities → Save
+
+Method 5 — WHATSAPP (no app needed!):
+  Forward supplier bill to WhatsApp bot number
+  → Bot extracts items → Reply OK to save
+
+Method 6 — BATCH SCAN:
+  Owner: Purchases → Batch Scan
+  → Scan 5-10 bills one after another → Save All
+
+================================================================
+FINDING YOUR LOCAL IP (for physical device testing)
+================================================================
+
+WINDOWS:
+  ipconfig
+  -- Look for "IPv4 Address" under your WiFi adapter
+  -- Example: 192.168.1.105
+
+MAC:
+  ifconfig en0 | grep inet
+  -- OR: System Settings → WiFi → Details → IP Address
+
+LINUX:
+  hostname -I
+  -- OR: ip addr show | grep "inet "
+
+Then set in app:
+  baseUrl = 'http://YOUR_IP:3000'
+  -- Phone and computer must be on same WiFi network
+
+================================================================
+TROUBLESHOOTING
+================================================================
+
+ERROR: "flutter: command not found"
+  → Add Flutter to PATH. Restart terminal.
+
+ERROR: "No connected devices"
+  → Start emulator: flutter emulators --launch <name>
+  → Or connect phone via USB with debugging enabled
+
+ERROR: "Gradle build failed" (Android)
+  → cd android && ./gradlew clean && cd ..
+  → flutter clean && flutter pub get && flutter run
+
+ERROR: "CocoaPods not installed" (iOS)
+  → sudo gem install cocoapods
+  → cd ios && pod install && cd ..
+
+ERROR: "Connection refused" to backend
+  → Make sure backend is running: npm run dev
+  → Check API baseUrl matches your setup:
+    - Emulator: 10.0.2.2:3000
+    - Simulator: localhost:3000
+    - Phone: YOUR_COMPUTER_IP:3000
+
+ERROR: "XMLHttpRequest error" (Web)
+  → CORS issue. Backend already has CORS enabled.
+  → Make sure you're accessing via http://localhost, not 127.0.0.1
+
+ERROR: "Null check operator used on a null value"
+  → Usually means API returned unexpected data
+  → Check backend logs for errors
+
+ERROR: App crashes on startup
+  → flutter clean
+  → flutter pub get
+  → flutter run --verbose   (see detailed error)
+
+================================================================
+RECOMMENDED DEVELOPMENT WORKFLOW
+================================================================
+
+Terminal 1 — Backend:
+  cd backend
+  npm run dev
+
+Terminal 2 — Flutter (choose one):
+  cd app
+  flutter run -d chrome          ← Owner dashboard (web)
+  flutter run -d emulator-5554   ← Operator app (Android)
+  flutter run -d "iPhone 15 Pro" ← Operator app (iOS)
+
+Terminal 3 — Database viewer (optional):
+  cd backend
+  npx prisma studio              ← Opens at localhost:5555
+
+================================================================
+DEPLOYING TO PRODUCTION (overview)
+================================================================
+
+Backend:
+  1. Deploy to any Node.js host (Railway, Render, AWS, VPS)
+  2. Set production DATABASE_URL, REDIS_URL, real API keys
+  3. npm run build && npm start
+
+Mobile App:
+  1. Update baseUrl to production API URL
+  2. flutter build apk --release (Android)
+  3. flutter build ios --release (iOS)
+  4. Distribute via Play Store / App Store / direct APK
+
+Web Dashboard:
+  1. flutter build web --release
+  2. Deploy build/web/ to any static host (Vercel, Netlify, S3)
